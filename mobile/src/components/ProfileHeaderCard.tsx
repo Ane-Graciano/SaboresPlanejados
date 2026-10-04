@@ -2,7 +2,21 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-export default function ProfileHeaderCard({ user, onEdit, isDark }) {
+interface UserData {
+  nome: string;
+  email: string;
+  avatarLetra: string;
+  planejadasCount?: number;
+  salvasCount?: number;
+}
+
+interface ProfileHeaderCardProps {
+  user: UserData;
+  onEdit?: () => void; // Prop opcional
+  isDark?: boolean;
+}
+
+export default function ProfileHeaderCard({ user, onEdit, isDark }: ProfileHeaderCardProps) {
   return (
     <View
       style={[
@@ -24,7 +38,7 @@ export default function ProfileHeaderCard({ user, onEdit, isDark }) {
         {user.email}
       </Text>
 
-      <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+      <TouchableOpacity style={styles.editButton} onPress={onEdit} activeOpacity={0.7}>
         <Feather name="edit-2" size={12} color="#5A4E43" />
         <Text style={styles.editButtonText}>Editar perfil</Text>
       </TouchableOpacity>

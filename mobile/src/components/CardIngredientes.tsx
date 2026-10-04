@@ -1,15 +1,43 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+} from 'react-native';
+
+import {
+  Ingrediente,
+} from '../model/mockReceitas';
+
+interface CardIngredientesProps {
+  ingredientes?: Ingrediente[];
+  porcoesBase?: number;
+  porcoesAtuais?: number;
+}
 
 export default function CardIngredientes({
   ingredientes = [],
   porcoesBase = 1,
   porcoesAtuais = 1,
-}) {
-  const calcularQtd = (qtd) => {
-    if (typeof qtd === 'string') return qtd;
-    const v = (qtd / porcoesBase) * porcoesAtuais;
-    return Number.isInteger(v) ? v : parseFloat(v.toFixed(1));
+}: CardIngredientesProps) {
+  const calcularQtd = (
+    qtd: number | string | undefined,
+  ): number | string => {
+    if (qtd === undefined) {
+      return '';
+    }
+
+    if (typeof qtd === 'string') {
+      return qtd;
+    }
+
+    const v =
+      (qtd / porcoesBase) *
+      porcoesAtuais;
+
+    return Number.isInteger(v)
+      ? v
+      : parseFloat(v.toFixed(1));
   };
 
   return (
@@ -19,13 +47,19 @@ export default function CardIngredientes({
           key={i}
           style={[
             styles.ingredientItem,
-            i < ingredientes.length - 1 && styles.borderBottom,
+            i < ingredientes.length - 1 &&
+              styles.borderBottom,
           ]}
         >
-          <Text style={styles.ingredientName}>{ing.nome}</Text>
+          <Text style={styles.ingredientName}>
+            {ing.nome}
+          </Text>
+
           <Text style={styles.ingredientQty}>
             {calcularQtd(ing.qtd)}
-            {ing.unidade ? ` ${ing.unidade}` : ''}
+            {ing.unidade
+              ? ` ${ing.unidade}`
+              : ''}
           </Text>
         </View>
       ))}
@@ -41,21 +75,25 @@ const styles = StyleSheet.create({
     borderColor: '#EFEBE4',
     overflow: 'hidden',
   },
+
   ingredientItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
+
   borderBottom: {
     borderBottomWidth: 1,
     borderBottomColor: '#F2ECE4',
   },
+
   ingredientName: {
     fontSize: 14,
     fontWeight: '500',
     color: '#2C2016',
   },
+
   ingredientQty: {
     fontSize: 13.5,
     fontWeight: '700',

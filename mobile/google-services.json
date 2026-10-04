@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "328051519021",
+    "project_id": "sabores-planejados",
+    "storage_bucket": "sabores-planejados.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:328051519021:android:c6b9f7488f583b05d3d2a4",
+        "android_client_info": {
+          "package_name": "com.anaelize.saboresplanejados"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUnLpFsreR97AymHBZtAa-sHr1WMqUxGo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

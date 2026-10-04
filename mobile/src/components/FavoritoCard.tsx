@@ -1,12 +1,31 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-
-// Import corrigido para a pasta data:
 import { CATEGORY_COLORS } from '../data/favoritosMock';
 
-export default function FavoritoCard({ item, onPress, onToggleFav, isDark }) {
-  const catColor = CATEGORY_COLORS[item.categoria] || '#6B8C6B';
+interface Favorito {
+  id: string;
+  titulo: string;
+  categoria?: string;
+  tempo: string;
+  avaliacao?: number;
+  imagem: string;
+}
+
+interface FavoritoCardProps {
+  item: Favorito;
+  onPress: () => void;
+  onToggleFav: (item: Favorito) => void;
+  isDark: boolean;
+}
+
+export default function FavoritoCard({
+  item,
+  onPress,
+  onToggleFav,
+  isDark,
+}: FavoritoCardProps) {
+  const catColor = CATEGORY_COLORS[item.categoria as keyof typeof CATEGORY_COLORS] || '#6B8C6B';
 
   return (
     <TouchableOpacity
@@ -24,39 +43,52 @@ export default function FavoritoCard({ item, onPress, onToggleFav, isDark }) {
         <Image source={{ uri: item.imagem }} style={styles.cardImage} />
         <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
       </View>
-
       <View style={styles.cardContent}>
         <View>
           <Text style={[styles.cardCategory, { color: catColor }]}>
             {item.categoria || 'RECEITA'}
           </Text>
           <Text
-            style={[styles.cardTitle, { color: isDark ? '#FAF6F0' : '#2C2016' }]}
+            style={[
+              styles.cardTitle,
+              { color: isDark ? '#FAF6F0' : '#2C2016' },
+            ]}
             numberOfLines={2}
           >
             {item.titulo}
           </Text>
         </View>
-
         <View style={styles.cardFooter}>
           <View style={styles.metaGroup}>
             <View style={styles.metaItem}>
-              <Feather name="clock" size={12} color={isDark ? '#8A9E90' : '#8A7A6C'} />
-              <Text style={[styles.metaText, { color: isDark ? '#8A9E90' : '#8A7A6C' }]}>
+              <Feather
+                name="clock"
+                size={12}
+                color={isDark ? '#8A9E90' : '#8A7A6C'}
+              />
+              <Text
+                style={[
+                  styles.metaText,
+                  { color: isDark ? '#8A9E90' : '#8A7A6C' },
+                ]}
+              >
                 {item.tempo}
               </Text>
             </View>
-
-            {item.avaliacao && (
+            {item.avaliacao !== undefined && (
               <View style={styles.metaItem}>
                 <Feather name="star" size={12} color="#C46B3E" />
-                <Text style={[styles.metaTextBold, { color: isDark ? '#D0C4B6' : '#5A4E43' }]}>
+                <Text
+                  style={[
+                    styles.metaTextBold,
+                    { color: isDark ? '#D0C4B6' : '#5A4E43' },
+                  ]}
+                >
                   {item.avaliacao}
                 </Text>
               </View>
             )}
           </View>
-
           <TouchableOpacity
             style={styles.heartButton}
             onPress={(e) => {
@@ -102,7 +134,7 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     padding: 12,
-    justify: 'space-between',
+    justifyContent: 'space-between',
   },
   cardCategory: {
     fontSize: 10,
@@ -119,7 +151,7 @@ const styles = StyleSheet.create({
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justify: 'space-between',
+    justifyContent: 'space-between',
   },
   metaGroup: {
     flexDirection: 'row',
@@ -144,7 +176,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#FDF0EB',
-    justify: 'center',
+    justifyContent: 'center',
     alignItems: 'center',
   },
 });

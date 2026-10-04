@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { signOut } from 'firebase/auth';
 
 import ProfileHeaderCard from '../components/ProfileHeaderCard';
 import ProfileStatsRow from '../components/ProfileStatsRow';
 import ProfileMenuList from '../components/ProfileMenuList';
+import LogoutModal from '../components/LogoutModal';
 
 import { getFavoritos } from '../utils/storage';
+import { auth } from '../services/authService';
 
 const USER_DATA = {
   nome: 'Ana Elize',
@@ -16,14 +19,21 @@ const USER_DATA = {
   salvasCount: 0,
 };
 
-export default function PerfilScreen({ navigation, theme }) {
+export default function PerfilScreen({
+  navigation,
+  theme,
+  toggleTheme,
+}: any) {
   const [favoritosCount, setFavoritosCount] = useState(0);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const isDark = theme === 'dark';
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       carregarTotalFavoritos();
     });
+
     return unsubscribe;
   }, [navigation]);
 
@@ -36,12 +46,37 @@ export default function PerfilScreen({ navigation, theme }) {
     navigation.navigate('Favoritos');
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0D1912' : '#FBF8F3' }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+  const handleConfirmLogout = async () => {
+    try {
+      await signOut(auth);
+      setShowLogoutModal(false);
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+    }
+  };
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <ProfileHeaderCard user={USER_DATA} isDark={isDark} />
+  return (
+    <SafeAreaView
+      style={[
+        styles.container,
+        {
+          backgroundColor: isDark ? '#0D1912' : '#FBF8F3',
+        },
+      ]}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ProfileHeaderCard
+          user={USER_DATA}
+          isDark={isDark}
+          onEdit={() => console.log('Editar perfil')}
+        />
 
         <ProfileStatsRow
           favoritosCount={favoritosCount}
@@ -51,8 +86,21 @@ export default function PerfilScreen({ navigation, theme }) {
           isDark={isDark}
         />
 
-        <ProfileMenuList onNavigateFavoritos={handleNavigateFavoritos} isDark={isDark} />
+        <ProfileMenuList
+          onNavigateFavoritos={handleNavigateFavoritos}
+          onOpenLogoutModal={() => setShowLogoutModal(true)}
+          onDirectLogout={handleConfirmLogout}
+          isDark={isDark}
+          toggleTheme={toggleTheme}
+        />
       </ScrollView>
+
+      <LogoutModal
+        visible={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+        isDark={isDark}
+      />
     </SafeAreaView>
   );
 }
@@ -61,6 +109,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,

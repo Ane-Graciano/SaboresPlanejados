@@ -3,11 +3,14 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
 
 import HomeScreen from '../screens/HomeScreen';
-import PerfilScreen from '../screens/PerfilScreen'; // <--- Import da nova tela
+import PerfilScreen from '../screens/PerfilScreen';
+import SearchScreen from '../screens/SearchScreen';
 
 const Tab = createBottomTabNavigator();
 
-const TEMAS = {
+type ThemeType = 'light' | 'dark';
+
+const TEMAS: Record<ThemeType, { border: string; tabBg: string; activeTab: string; inactiveTab: string }> = {
   dark: {
     border: '#1A2B20',
     tabBg: '#0A140F',
@@ -22,7 +25,14 @@ const TEMAS = {
   },
 };
 
-export default function TabNavigator({ theme, toggleTheme }) {
+// 2. Interface de props para o TabNavigator
+interface TabNavigatorProps {
+  theme?: ThemeType;
+  toggleTheme?: () => void;
+}
+
+export default function TabNavigator({ theme = 'dark', toggleTheme }: TabNavigatorProps) {
+  // Acesso seguro ao objeto TEMAS
   const t = TEMAS[theme] || TEMAS.dark;
 
   return (
@@ -58,7 +68,7 @@ export default function TabNavigator({ theme, toggleTheme }) {
           tabBarIcon: ({ color, size }) => <Feather name="search" size={size - 2} color={color} />,
         }}
       >
-        {(props) => <HomeScreen {...props} theme={theme} toggleTheme={toggleTheme} />}
+        {(props) => <SearchScreen {...props} theme={theme} toggleTheme={toggleTheme} />}
       </Tab.Screen>
 
       <Tab.Screen
