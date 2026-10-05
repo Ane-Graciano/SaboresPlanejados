@@ -2,22 +2,32 @@ export interface Receita {
   id: string;
   titulo: string;
   tempo: string;
+  dataAdicao: string;
+
   categoriaId: string;
   isSaudavel: boolean;
+
   imagem: string;
   imagens?: string[];
+
   avaliacao?: number;
   avaliacoesCount?: number;
+
   dificuldade?: string;
   porcoes?: number;
+
   descricao: string;
+
   ingredientes: Ingrediente[];
+
   passos?: string[];
   dicas?: string[];
   historia?: string;
+
   chef: string;
   tipoPrato: string;
   culinaria: string;
+
   temas?: string[];
   estacoes?: Estacao[];
   epocas?: Epoca[];

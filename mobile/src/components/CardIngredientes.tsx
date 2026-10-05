@@ -7,12 +7,73 @@ import {
 
 import {
   Ingrediente,
-} from '../model/mockReceitas';
+} from '../model/receita';
 
 interface CardIngredientesProps {
   ingredientes?: Ingrediente[];
   porcoesBase?: number;
   porcoesAtuais?: number;
+}
+
+function simplificarFracao(
+  numerador: number,
+  denominador: number,
+): string {
+  const mdc = (a: number, b: number): number => {
+    while (b !== 0) {
+      const resto = a % b;
+      a = b;
+      b = resto;
+    }
+
+    return Math.abs(a);
+  };
+
+  const divisor = mdc(numerador, denominador);
+
+  return `${numerador / divisor}/${denominador / divisor}`;
+}
+
+function formatarQuantidade(valor: number): string {
+  if (Number.isInteger(valor)) {
+    return String(valor);
+  }
+
+  const fracoes = [
+    { valor: 0.125, texto: '1/8' },
+    { valor: 0.25, texto: '1/4' },
+    { valor: 0.333, texto: '1/3' },
+    { valor: 0.375, texto: '3/8' },
+    { valor: 0.5, texto: '1/2' },
+    { valor: 0.625, texto: '5/8' },
+    { valor: 0.667, texto: '2/3' },
+    { valor: 0.75, texto: '3/4' },
+    { valor: 0.875, texto: '7/8' },
+  ];
+
+  const parteInteira = Math.floor(valor);
+  const parteDecimal = valor - parteInteira;
+
+  const fracao = fracoes.find(
+    (item) =>
+      Math.abs(item.valor - parteDecimal) < 0.03,
+  );
+
+  if (fracao) {
+    if (parteInteira === 0) {
+      return fracao.texto;
+    }
+
+    return `${parteInteira} ${fracao.texto}`;
+  }
+
+  const denominador = 8;
+  const numerador = Math.round(valor * denominador);
+
+  return simplificarFracao(
+    numerador,
+    denominador,
+  );
 }
 
 export default function CardIngredientes({
@@ -22,8 +83,8 @@ export default function CardIngredientes({
 }: CardIngredientesProps) {
   const calcularQtd = (
     qtd: number | string | undefined,
-  ): number | string => {
-    if (qtd === undefined) {
+  ): string => {
+    if (qtd === undefined || qtd === '') {
       return '';
     }
 
@@ -31,13 +92,11 @@ export default function CardIngredientes({
       return qtd;
     }
 
-    const v =
+    const valor =
       (qtd / porcoesBase) *
       porcoesAtuais;
 
-    return Number.isInteger(v)
-      ? v
-      : parseFloat(v.toFixed(1));
+    return formatarQuantidade(valor);
   };
 
   return (

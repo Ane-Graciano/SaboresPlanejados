@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Categoria {
+  id       String    @id
+  emoji    String
+  label    String
+  receitas Receita[]
+}
+
+model Receita {
+  id              String             @id
+  titulo          String
+  tempo           String
+  categoriaId     String
+  isSaudavel      Boolean
+  imagem          String
+  avaliacao       Float?
+  avaliacoesCount Int?
+  dificuldade     String?
+  porcoes         Int?
+  descricao       String
+  chef             String
+  tipoPrato       String
+  culinaria       String
+
+  categoria       Categoria          @relation(fields: [categoriaId], references: [id])
+  imagens         ReceitaImagem[]
+  ingredientes    ReceitaIngrediente[]
+  passos          ReceitaPasso[]
+  dicas           ReceitaDica[]
+  temas           ReceitaTema[]
+  estacoes        ReceitaEstacao[]
+  epocas          ReceitaEpoca[]
+}
+
+model ReceitaImagem {
+  id        Int      @id @default(autoincrement())
+  url       String
+  ordem     Int
+  receitaId String
+
+  receita Receita @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@unique([receitaId, ordem])
+}
+
+model Ingrediente {
+  id       Int      @id @default(autoincrement())
+  nome     String   @unique
+  receitas ReceitaIngrediente[]
+}
+
+model ReceitaIngrediente {
+  id            Int      @id @default(autoincrement())
+  receitaId     String
+  ingredienteId Int
+  qtd           String?
+  unidade       String?
+  ordem         Int
+
+  receita     Receita     @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id])
+
+  @@unique([receitaId, ingredienteId])
+  @@unique([receitaId, ordem])
+}
+
+model ReceitaPasso {
+  id        Int    @id @default(autoincrement())
+  receitaId String
+  ordem     Int
+  texto     String
+
+  receita Receita @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@unique([receitaId, ordem])
+}
+
+model ReceitaDica {
+  id        Int    @id @default(autoincrement())
+  receitaId String
+  ordem     Int
+  texto     String
+
+  receita Receita @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@unique([receitaId, ordem])
+}
+
+model Tema {
+  id       Int            @id @default(autoincrement())
+  nome     String         @unique
+  receitas ReceitaTema[]
+}
+
+model ReceitaTema {
+  receitaId String
+  temaId    Int
+
+  receita Receita @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+  tema    Tema    @relation(fields: [temaId], references: [id], onDelete: Cascade)
+
+  @@id([receitaId, temaId])
+}
+
+enum Estacao {
+  verao
+  outono
+  inverno
+  primavera
+}
+
+model ReceitaEstacao {
+  receitaId String
+  estacao   Estacao
+
+  receita Receita @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@id([receitaId, estacao])
+}
+
+enum Epoca {
+  natal
+  pascoa
+  ano_novo
+  festa_junina
+}
+
+model ReceitaEpoca {
+  receitaId String
+  epoca     Epoca
+
+  receita Receita @relation(fields: [receitaId], references: [id], onDelete: Cascade)
+
+  @@id([receitaId, epoca])
+}

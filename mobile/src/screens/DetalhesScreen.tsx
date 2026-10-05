@@ -1,22 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
   ActivityIndicator,
   Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+
 import HeroHeader from '../components/HeroHeader';
 import SeletorPorcoes from '../components/SeletorPorcoes';
 import CardIngredientes from '../components/CardIngredientes';
 import ItemPasso from '../components/ItemPasso';
 import Divisor from '../components/Divisor';
-import { getFavoritos, toggleFavoritoStorage } from '../utils/storage';
+
+import {
+  getFavoritos,
+  toggleFavoritoStorage,
+} from '../utils/storage';
+
 import { buscarReceitaPorId } from '../services/receitaApiService';
 import { Receita } from '../model/receita';
 
@@ -25,28 +31,44 @@ type DetalhesRouteParams = {
   receitaId?: string;
 };
 
-type DetalhesNavigation = {
-  goBack?: () => void;
-};
-
 type DetalhesScreenProps = {
-  navigation: DetalhesNavigation;
-  route: {
+  navigation?: {
+    goBack?: () => void;
+    navigate?: (screen: string, params?: object) => void;
+  };
+  route?: {
     params?: DetalhesRouteParams;
   };
 };
 
-export default function DetalhesScreen({ navigation, route }: DetalhesScreenProps) {
-  const receitaRecebida = route.params?.receita;
-  const receitaId = route.params?.receitaId || receitaRecebida?.id;
+export default function DetalhesScreen({
+  navigation,
+  route,
+}: DetalhesScreenProps) {
+  const receitaRecebida = route?.params?.receita;
 
-  const [receita, setReceita] = useState<Receita | null>(receitaRecebida || null);
-  const [isLoading, setIsLoading] = useState<boolean>(!receitaRecebida);
+  const receitaId =
+    route?.params?.receitaId ||
+    receitaRecebida?.id;
+
+  const [receita, setReceita] = useState<Receita | null>(
+    receitaRecebida || null,
+  );
+
+  const [isLoading, setIsLoading] = useState<boolean>(
+    !receitaRecebida,
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [isNotFound, setIsNotFound] = useState<boolean>(false);
   const [isFavorito, setIsFavorito] = useState<boolean>(false);
-  const [porcoes, setPorcoes] = useState<number>(receitaRecebida?.porcoes || 2);
-  const [passosConcluidos, setPassosConcluidos] = useState<Set<number>>(new Set<number>());
+
+  const [porcoes, setPorcoes] = useState<number>(
+    receitaRecebida?.porcoes || 2,
+  );
+
+  const [passosConcluidos, setPassosConcluidos] =
+    useState<Set<number>>(new Set<number>());
 
   useEffect(() => {
     carregarReceita();
@@ -69,6 +91,7 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
     }
 
     if (!receitaId) {
+      setReceita(null);
       setIsLoading(false);
       setIsNotFound(true);
       return;
@@ -79,7 +102,9 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
       setError(null);
       setIsNotFound(false);
 
-      const resultado = await buscarReceitaPorId(String(receitaId));
+      const resultado = await buscarReceitaPorId(
+        String(receitaId),
+      );
 
       if (!resultado) {
         setReceita(null);
@@ -91,28 +116,36 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
       setPorcoes(resultado.porcoes || 2);
     } catch (err) {
       console.error('Erro ao carregar receita:', err);
+
       setReceita(null);
-      setError('Não foi possível carregar a receita. Verifique sua conexão e tente novamente.');
+
+      setError(
+        'Não foi possível carregar a receita. Verifique sua conexão e tente novamente.',
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const checkFavoritoStatus = async (): Promise<void> => {
-    if (!receita?.id && receita?.id !== '0') {
+    if (!receita?.id) {
       return;
     }
 
     try {
-      const favs = await getFavoritos();
+      const favoritos = await getFavoritos();
 
-      const existe = favs.some(
-        (item: Receita) => String(item.id) === String(receita.id),
+      const existe = favoritos.some(
+        (item: Receita) =>
+          String(item.id) === String(receita.id),
       );
 
       setIsFavorito(existe);
     } catch (err) {
-      console.error('Erro ao verificar favorito:', err);
+      console.error(
+        'Erro ao verificar favorito:',
+        err,
+      );
     }
   };
 
@@ -122,15 +155,21 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
     }
 
     try {
-      const novaLista = await toggleFavoritoStorage(receita);
+      const novaLista = await toggleFavoritoStorage(
+        receita,
+      );
 
       const atualizado = novaLista.some(
-        (item: Receita) => String(item.id) === String(receita.id),
+        (item: Receita) =>
+          String(item.id) === String(receita.id),
       );
 
       setIsFavorito(atualizado);
     } catch (err) {
-      console.error('Erro ao alterar favorito:', err);
+      console.error(
+        'Erro ao alterar favorito:',
+        err,
+      );
     }
   };
 
@@ -148,13 +187,46 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
     });
   };
 
+  const iniciarModoPreparo = (): void => {
+    if (!receita || !navigation?.navigate) {
+      return;
+    }
+
+    navigation.navigate('ReadingMode', {
+      receita,
+    });
+  };
+
+  const voltar = (): void => {
+    navigation?.goBack?.();
+  };
+
+  const restaurarPorcoes = (): void => {
+    if (!receita) {
+      return;
+    }
+
+    setPorcoes(receita.porcoes || 2);
+  };
+
+  const porcoesOriginais = receita?.porcoes || 2;
+  const porcoesAlteradas = porcoes !== porcoesOriginais;
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
+
         <View style={styles.stateContainer}>
-          <ActivityIndicator size="large" color="#2E4A2E" />
-          <Text style={styles.stateTitle}>Carregando receita...</Text>
+          <ActivityIndicator
+            size="large"
+            color="#2E4A2E"
+          />
+
+          <Text style={styles.stateTitle}>
+            Carregando receita...
+          </Text>
+
           <Text style={styles.stateText}>
             Aguarde enquanto buscamos as informações da receita.
           </Text>
@@ -167,12 +239,19 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
+
         <View style={styles.stateContainer}>
           <View style={styles.stateIcon}>
-            <Ionicons name="search-outline" size={36} color="#9B8574" />
+            <Ionicons
+              name="search-outline"
+              size={36}
+              color="#9B8574"
+            />
           </View>
 
-          <Text style={styles.stateTitle}>Receita não encontrada</Text>
+          <Text style={styles.stateTitle}>
+            Receita não encontrada
+          </Text>
 
           <Text style={styles.stateText}>
             A receita que você tentou acessar não existe ou foi removida.
@@ -180,9 +259,11 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
 
           <TouchableOpacity
             style={styles.secondaryStateButton}
-            onPress={() => navigation.goBack?.()}
+            onPress={voltar}
           >
-            <Text style={styles.secondaryStateButtonText}>Voltar</Text>
+            <Text style={styles.secondaryStateButtonText}>
+              Voltar
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -193,26 +274,48 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
+
         <View style={styles.stateContainer}>
-          <View style={[styles.stateIcon, { backgroundColor: '#F5E8E1' }]}>
-            <Ionicons name="alert-circle-outline" size={36} color="#C46B3E" />
+          <View
+            style={[
+              styles.stateIcon,
+              {
+                backgroundColor: '#F5E8E1',
+              },
+            ]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={36}
+              color="#C46B3E"
+            />
           </View>
 
-          <Text style={styles.stateTitle}>Ocorreu um erro</Text>
-
-          <Text style={styles.stateText}>
-            {error || 'Não foi possível carregar esta receita.'}
+          <Text style={styles.stateTitle}>
+            Ocorreu um erro
           </Text>
 
-          <TouchableOpacity style={styles.retryButton} onPress={carregarReceita}>
-            <Text style={styles.retryButtonText}>Tentar novamente</Text>
+          <Text style={styles.stateText}>
+            {error ||
+              'Não foi possível carregar esta receita.'}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={carregarReceita}
+          >
+            <Text style={styles.retryButtonText}>
+              Tentar novamente
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryStateButton}
-            onPress={() => navigation.goBack?.()}
+            onPress={voltar}
           >
-            <Text style={styles.secondaryStateButtonText}>Voltar</Text>
+            <Text style={styles.secondaryStateButtonText}>
+              Voltar
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -220,12 +323,17 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView
+      style={styles.container}
+      edges={['bottom']}
+    >
       <StatusBar barStyle="light-content" />
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 160 }}
+        contentContainerStyle={{
+          paddingBottom: 160,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <HeroHeader
@@ -233,160 +341,247 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
           avaliacao={receita.avaliacao}
           avaliacoesCount={receita.avaliacoesCount}
           isFavorito={isFavorito}
-          onBackPress={() => navigation.goBack?.()}
+          onBackPress={voltar}
           onFavoritoToggle={handleToggleFavorito}
         />
 
         <View style={styles.contentSection}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{receita.titulo}</Text>
+            <Text style={styles.title}>
+              {receita.titulo}
+            </Text>
 
             {receita.dificuldade && (
               <View style={styles.difficultyBadge}>
-                <Text style={styles.difficultyText}>{receita.dificuldade}</Text>
+                <Text style={styles.difficultyText}>
+                  {receita.dificuldade}
+                </Text>
               </View>
             )}
           </View>
 
           <View style={styles.metaRow}>
             <View style={styles.metaPill}>
-              <Ionicons name="time-outline" size={16} color="#7A685B" />
-              <Text style={styles.metaText}>{receita.tempo}</Text>
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color="#7A685B"
+              />
+
+              <Text style={styles.metaText}>
+                {receita.tempo}
+              </Text>
             </View>
 
             {receita.porcoes && (
               <View style={styles.metaPill}>
-                <Ionicons name="people-outline" size={16} color="#7A685B" />
-                <Text style={styles.metaText}>{receita.porcoes} porções</Text>
+                <Ionicons
+                  name="people-outline"
+                  size={16}
+                  color="#7A685B"
+                />
+
+                <Text style={styles.metaText}>
+                  {receita.porcoes} porções
+                </Text>
               </View>
             )}
           </View>
 
           {receita.descricao && (
-            <Text style={styles.description}>{receita.descricao}</Text>
+            <Text style={styles.description}>
+              {receita.descricao}
+            </Text>
           )}
         </View>
 
         <Divisor />
 
-        {receita.ingredientes && receita.ingredientes.length > 0 && (
-          <>
-            <View style={styles.contentSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Ingredientes</Text>
+        {receita.ingredientes &&
+          receita.ingredientes.length > 0 && (
+            <>
+              <View style={styles.contentSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>
+                    Ingredientes
+                  </Text>
 
-                <SeletorPorcoes
-                  porcoes={porcoes}
-                  onAumentar={() => setPorcoes((p: number) => p + 1)}
-                  onDiminuir={() => setPorcoes((p: number) => Math.max(1, p - 1))}
-                />
-              </View>
-
-              <CardIngredientes
-                ingredientes={receita.ingredientes}
-                porcoesBase={receita.porcoes || 1}
-                porcoesAtuais={porcoes}
-              />
-
-              <Text style={styles.servingsNote}>
-                Quantidades ajustadas para {porcoes} porção{porcoes !== 1 ? 'ões' : ''}
-              </Text>
-            </View>
-
-            <Divisor />
-          </>
-        )}
-
-        {receita.passos && receita.passos.length > 0 && (
-          <>
-            <View style={styles.contentSection}>
-              <Text style={styles.sectionTitle}>Modo de preparo</Text>
-
-              <View style={styles.stepsList}>
-                {receita.passos.map((passo: string, i: number) => (
-                  <ItemPasso
-                    key={i}
-                    index={i}
-                    textoPasso={passo}
-                    isConcluido={passosConcluidos.has(i)}
-                    onToggle={() => togglePasso(i)}
+                  <SeletorPorcoes
+                    porcoes={porcoes}
+                    onAumentar={() =>
+                      setPorcoes((p: number) => p + 1)
+                    }
+                    onDiminuir={() =>
+                      setPorcoes((p: number) =>
+                        Math.max(1, p - 1),
+                      )
+                    }
                   />
-                ))}
-              </View>
-            </View>
+                </View>
 
-            <Divisor />
-          </>
-        )}
+                <CardIngredientes
+                  ingredientes={receita.ingredientes}
+                  porcoesBase={porcoesOriginais}
+                  porcoesAtuais={porcoes}
+                />
 
-        {receita.imagens && receita.imagens.length > 0 && (
-          <>
-            <View style={styles.contentSection}>
-              <Text style={styles.sectionTitle}>Galeria</Text>
+                <Text style={styles.servingsNote}>
+                  Quantidades ajustadas para {porcoes} porção
+                  {porcoes !== 1 ? 'ões' : ''}
+                </Text>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.gallery}
-                contentContainerStyle={styles.galleryContent}
-              >
-                {receita.imagens.map((imagem: string, index: number) => (
-                  <View
-                    key={`${imagem}-${index}`}
-                    style={styles.galleryItem}
+                {porcoesAlteradas && (
+                  <TouchableOpacity
+                    style={styles.restoreButton}
+                    activeOpacity={0.8}
+                    onPress={restaurarPorcoes}
                   >
-                    <Image
-                      source={{ uri: imagem }}
-                      style={styles.galleryImage}
-                      resizeMode="cover"
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-
-            <Divisor />
-          </>
-        )}
-
-        {receita.dicas && receita.dicas.length > 0 && (
-          <>
-            <View style={styles.contentSection}>
-              <Text style={styles.sectionTitle}>Dicas</Text>
-
-              <View style={styles.tipsBox}>
-                {receita.dicas.map((dica: string, i: number) => (
-                  <View key={i} style={styles.tipRow}>
                     <Ionicons
-                      name="information-circle-outline"
-                      size={18}
-                      color="#6B8C6B"
+                      name="refresh-outline"
+                      size={16}
+                      color="#2E4A2E"
                     />
 
-                    <Text style={styles.tipText}>{dica}</Text>
-                  </View>
-                ))}
+                    <Text style={styles.restoreButtonText}>
+                      Restaurar {porcoesOriginais} porções
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            </View>
 
-            <Divisor />
-          </>
-        )}
+              <Divisor />
+            </>
+          )}
+
+        {receita.passos &&
+          receita.passos.length > 0 && (
+            <>
+              <View style={styles.contentSection}>
+                <Text style={styles.sectionTitle}>
+                  Modo de preparo
+                </Text>
+
+                <View style={styles.stepsList}>
+                  {receita.passos.map(
+                    (passo: string, index: number) => (
+                      <ItemPasso
+                        key={index}
+                        index={index}
+                        textoPasso={passo}
+                        isConcluido={passosConcluidos.has(
+                          index,
+                        )}
+                        onToggle={() =>
+                          togglePasso(index)
+                        }
+                      />
+                    ),
+                  )}
+                </View>
+              </View>
+
+              <Divisor />
+            </>
+          )}
+
+        {receita.imagens &&
+          receita.imagens.length > 0 && (
+            <>
+              <View style={styles.contentSection}>
+                <Text style={styles.sectionTitle}>
+                  Galeria
+                </Text>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.gallery}
+                  contentContainerStyle={styles.galleryContent}
+                >
+                  {receita.imagens.map(
+                    (
+                      imagem: string,
+                      index: number,
+                    ) => (
+                      <View
+                        key={`${imagem}-${index}`}
+                        style={styles.galleryItem}
+                      >
+                        <Image
+                          source={{ uri: imagem }}
+                          style={styles.galleryImage}
+                          resizeMode="cover"
+                        />
+                      </View>
+                    ),
+                  )}
+                </ScrollView>
+              </View>
+
+              <Divisor />
+            </>
+          )}
+
+        {receita.dicas &&
+          receita.dicas.length > 0 && (
+            <>
+              <View style={styles.contentSection}>
+                <Text style={styles.sectionTitle}>
+                  Dicas
+                </Text>
+
+                <View style={styles.tipsBox}>
+                  {receita.dicas.map(
+                    (dica: string, index: number) => (
+                      <View
+                        key={index}
+                        style={styles.tipRow}
+                      >
+                        <Ionicons
+                          name="information-circle-outline"
+                          size={18}
+                          color="#6B8C6B"
+                        />
+
+                        <Text style={styles.tipText}>
+                          {dica}
+                        </Text>
+                      </View>
+                    ),
+                  )}
+                </View>
+              </View>
+
+              <Divisor />
+            </>
+          )}
 
         {receita.historia && (
           <View style={styles.contentSection}>
             <View style={styles.historyHeader}>
-              <Ionicons name="book-outline" size={18} color="#9B8574" />
-              <Text style={styles.historyTitle}>História da receita</Text>
+              <Ionicons
+                name="book-outline"
+                size={18}
+                color="#9B8574"
+              />
+
+              <Text style={styles.historyTitle}>
+                História da receita
+              </Text>
             </View>
 
-            <Text style={styles.historyText}>{receita.historia}</Text>
+            <Text style={styles.historyText}>
+              {receita.historia}
+            </Text>
           </View>
         )}
       </ScrollView>
 
       <View style={styles.fixedBottomContainer}>
-        <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          activeOpacity={0.8}
+        >
           <Ionicons
             name="play-circle-outline"
             size={18}
@@ -398,10 +593,20 @@ export default function DetalhesScreen({ navigation, route }: DetalhesScreenProp
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.primaryButton} activeOpacity={0.85}>
-          <Ionicons name="play" size={16} color="#FAF6F0" />
+        <TouchableOpacity
+          style={styles.primaryButton}
+          activeOpacity={0.85}
+          onPress={iniciarModoPreparo}
+        >
+          <Ionicons
+            name="play"
+            size={16}
+            color="#FAF6F0"
+          />
 
-          <Text style={styles.primaryButtonText}>Começar preparo</Text>
+          <Text style={styles.primaryButtonText}>
+            Começar preparo
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -543,6 +748,25 @@ const styles = StyleSheet.create({
     color: '#9B8574',
     marginTop: 8,
     textAlign: 'center',
+  },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#D2E3D2',
+    backgroundColor: '#EBF2EB',
+  },
+  restoreButtonText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#2E4A2E',
   },
   stepsList: {
     gap: 12,

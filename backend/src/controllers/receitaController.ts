@@ -6,6 +6,8 @@ import {
   buscarReceitasSazonais,
   buscarReceitasPorTema,
   buscarReceitaPorId,
+  OrdenarPor,
+  Ordem,
 } from '../services/receitaService';
 
 export const getTodasReceitas = (
@@ -19,47 +21,107 @@ export const getTodasReceitas = (
     tipoPrato,
     culinaria,
     tempoMax,
+    ordenarPor,
+    ordem,
   } = req.query;
 
-  const receitas = buscarReceitas({
-    busca: busca as string | undefined,
-    ingrediente: ingrediente as string | undefined,
-    chef: chef as string | undefined,
-    tipoPrato: tipoPrato as string | undefined,
-    culinaria: culinaria as string | undefined,
-    tempoMax: tempoMax
-      ? Number(tempoMax)
-      : undefined,
-  });
+  const opcoesOrdenacaoValidas: OrdenarPor[] = [
+    'tempo',
+    'popularidade',
+    'data',
+  ];
 
-  res.json(receitas);
+  const ordensValidas: Ordem[] = [
+    'asc',
+    'desc',
+  ];
+
+  const ordenarPorValido =
+    typeof ordenarPor === 'string' &&
+    opcoesOrdenacaoValidas.includes(
+      ordenarPor as OrdenarPor,
+    )
+      ? (ordenarPor as OrdenarPor)
+      : undefined;
+
+  const ordemValida =
+    typeof ordem === 'string' &&
+    ordensValidas.includes(
+      ordem as Ordem,
+    )
+      ? (ordem as Ordem)
+      : undefined;
+
+  const receitas = buscarReceitas(
+    {
+      busca:
+        typeof busca === 'string'
+          ? busca
+          : undefined,
+
+      ingrediente:
+        typeof ingrediente === 'string'
+          ? ingrediente
+          : undefined,
+
+      chef:
+        typeof chef === 'string'
+          ? chef
+          : undefined,
+
+      tipoPrato:
+        typeof tipoPrato === 'string'
+          ? tipoPrato
+          : undefined,
+
+      culinaria:
+        typeof culinaria === 'string'
+          ? culinaria
+          : undefined,
+
+      tempoMax:
+        typeof tempoMax === 'string' &&
+        tempoMax !== ''
+          ? Number(tempoMax)
+          : undefined,
+    },
+    {
+      ordenarPor: ordenarPorValido,
+      ordem: ordemValida,
+    },
+  );
+
+  return res.json(receitas);
 };
 
 export const getReceitasEmDestaque = (
   req: Request,
   res: Response,
 ) => {
-  const receitas = buscarReceitasEmDestaque();
+  const receitas =
+    buscarReceitasEmDestaque();
 
-  res.json(receitas);
+  return res.json(receitas);
 };
 
 export const getReceitasSazonais = (
   req: Request,
   res: Response,
 ) => {
-  const receitas = buscarReceitasSazonais();
+  const receitas =
+    buscarReceitasSazonais();
 
-  res.json(receitas);
+  return res.json(receitas);
 };
 
 export const getReceitasPorTema = (
   req: Request,
   res: Response,
 ) => {
-  const receitas = buscarReceitasPorTema();
+  const receitas =
+    buscarReceitasPorTema();
 
-  res.json(receitas);
+  return res.json(receitas);
 };
 
 export const getReceitaPorId = (
@@ -74,7 +136,8 @@ export const getReceitaPorId = (
     });
   }
 
-  const receita = buscarReceitaPorId(id);
+  const receita =
+    buscarReceitaPorId(id);
 
   if (!receita) {
     return res.status(404).json({

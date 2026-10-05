@@ -7,6 +7,7 @@ import { auth } from '../services/authService';
 import TabNavigator from './TabNavigator';
 import DetalhesScreen from '../screens/DetalhesScreen';
 import FavoritosScreen from '../screens/FavoritosScreen';
+import ReadingModeScreen from '../screens/ReadingModeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import SearchScreen from '../screens/SearchScreen';
@@ -40,8 +41,11 @@ export default function AppNavigator({
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
         {user ? (
           <>
             <Stack.Screen name="MainTabs">
@@ -67,6 +71,11 @@ export default function AppNavigator({
             <Stack.Screen
               name="Detalhes"
               component={DetalhesScreen}
+            />
+
+            <Stack.Screen
+              name="ReadingMode"
+              component={ReadingModeScreen}
             />
 
             <Stack.Screen name="Favoritos">
@@ -102,7 +111,6 @@ export default function AppNavigator({
             </Stack.Screen>
           </>
         )}
-
       </Stack.Navigator>
     </NavigationContainer>
   );

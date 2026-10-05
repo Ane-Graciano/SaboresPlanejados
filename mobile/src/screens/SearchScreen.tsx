@@ -3,12 +3,21 @@ import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { AdvancedFilterModal } from '../components/AdvancedFilterModal';
-import { buscarTodasReceitas, buscarReceitas, FiltrosReceita } from '../services/receitaApiService';
+import { buscarTodasReceitas, buscarReceitas, FiltrosReceita, OrdenacaoReceita } from '../services/receitaApiService';
 import { Receita } from '../model/receita';
 import { getFavoritos, toggleFavoritoStorage } from '../utils/storage';
+
 const FILTROS_RAPIDOS = ['Hoje', 'Rápido', 'Saudável'];
 const CATEGORIAS_FIGMA = [{ id: '1', label: 'Por ingrediente', icon: '🥕', bg: '#FFF5EE' }, { id: '2', label: 'Por tipo de prato', icon: '🍽️', bg: '#F2F6F3' }, { id: '3', label: 'Por culinária', icon: '🌐', bg: '#F0F7FF' }, { id: '4', label: 'Por chef', icon: '👨‍🍳', bg: '#FFF8E7' }];
 const FILTROS_INICIAIS = { maxTime: 60, ingredient: 'Todos', chef: 'Todos', tipoPrato: 'Todos', culinaria: 'Todos' };
+
+const OPCOES_ORDENACAO = [
+  { label: 'Mais rápidas', ordenarPor: 'tempo' as const, ordem: 'asc' as const },
+  { label: 'Mais demoradas', ordenarPor: 'tempo' as const, ordem: 'desc' as const },
+  { label: 'Mais populares', ordenarPor: 'popularidade' as const, ordem: 'desc' as const },
+  { label: 'Mais recentes', ordenarPor: 'data' as const, ordem: 'desc' as const },
+];
+
 export default function SearchScreen({ navigation, theme }: any) {
   const isDark = theme === 'dark';
   const [query, setQuery] = useState('');
@@ -20,10 +29,13 @@ export default function SearchScreen({ navigation, theme }: any) {
   const [modalVisible, setModalVisible] = useState(false);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [appliedAdvancedFilters, setAppliedAdvancedFilters] = useState(FILTROS_INICIAIS);
+  const [ordenacao, setOrdenacao] = useState<OrdenacaoReceita>({ ordenarPor: 'tempo', ordem: 'asc' });
+
   useEffect(() => {
     carregarFavoritos();
     carregarReceitasIniciais();
   }, []);
+
   const carregarFavoritos = async () => {
     try {
       const favoritosSalvos = await getFavoritos();
@@ -33,6 +45,7 @@ export default function SearchScreen({ navigation, theme }: any) {
       setFavorites([]);
     }
   };
+
   const carregarReceitasIniciais = async () => {
     try {
       setIsLoading(true);
@@ -47,11 +60,12 @@ export default function SearchScreen({ navigation, theme }: any) {
       setIsLoading(false);
     }
   };
-  const executarBusca = async (filtros: FiltrosReceita) => {
+
+  const executarBusca = async (filtros: FiltrosReceita, novaOrdenacao = ordenacao) => {
     try {
       setIsLoading(true);
       setError(null);
-      const resultado = await buscarReceitas(filtros);
+      const resultado = await buscarReceitas(filtros, novaOrdenacao);
       setRecipes(resultado);
     } catch (err) {
       console.error('Erro ao buscar receitas:', err);
@@ -61,6 +75,7 @@ export default function SearchScreen({ navigation, theme }: any) {
       setIsLoading(false);
     }
   };
+
   const toggleFavorite = async (receita: Receita) => {
     try {
       const novaLista = await toggleFavoritoStorage(receita);
@@ -69,6 +84,7 @@ export default function SearchScreen({ navigation, theme }: any) {
       console.log('Erro ao alterar favorito:', error);
     }
   };
+
   const montarFiltros = (novaQuery = query, novosFiltros = appliedAdvancedFilters): FiltrosReceita => {
     return {
       busca: novaQuery.trim().length > 0 ? novaQuery.trim() : undefined,
@@ -79,16 +95,19 @@ export default function SearchScreen({ navigation, theme }: any) {
       tempoMax: novosFiltros.maxTime < 60 ? novosFiltros.maxTime : undefined,
     };
   };
+
   const handleQueryChange = (text: string) => {
     setQuery(text);
     setShowAutocomplete(text.trim().length > 0);
     executarBusca(montarFiltros(text));
   };
+
   const suggestions = recipes.filter((recipe) => {
     const q = query.trim().toLowerCase();
     if (!q) return false;
     return recipe.titulo.toLowerCase().includes(q) || recipe.chef.toLowerCase().includes(q) || recipe.tipoPrato.toLowerCase().includes(q) || recipe.culinaria.toLowerCase().includes(q) || recipe.ingredientes?.some((ing) => ing.nome.toLowerCase().includes(q));
   }).slice(0, 5);
+
   const handleQuickFilter = (filter: string) => {
     setActiveFilter(filter);
     if (filter === 'Rápido') {
@@ -97,17 +116,26 @@ export default function SearchScreen({ navigation, theme }: any) {
     }
     executarBusca(montarFiltros());
   };
+
+  const handleOrdenacao = (novaOrdenacao: OrdenacaoReceita) => {
+    setOrdenacao(novaOrdenacao);
+    executarBusca(montarFiltros(), novaOrdenacao);
+  };
+
   const filteredRecipes = activeFilter === 'Saudável' ? recipes.filter((recipe) => recipe.isSaudavel) : recipes;
+
   const handleApplyFilters = (filters: typeof FILTROS_INICIAIS) => {
     setAppliedAdvancedFilters(filters);
     setModalVisible(false);
     executarBusca(montarFiltros(query, filters));
   };
+
   const handleClearFilters = () => {
     setAppliedAdvancedFilters(FILTROS_INICIAIS);
     setModalVisible(false);
     executarBusca(montarFiltros(query, FILTROS_INICIAIS));
   };
+
   const handleClearAll = () => {
     setQuery('');
     setActiveFilter('Hoje');
@@ -115,7 +143,11 @@ export default function SearchScreen({ navigation, theme }: any) {
     setShowAutocomplete(false);
     carregarReceitasIniciais();
   };
+
   const hasAdvancedFilters = appliedAdvancedFilters.maxTime < 60 || appliedAdvancedFilters.ingredient !== 'Todos' || appliedAdvancedFilters.chef !== 'Todos' || appliedAdvancedFilters.tipoPrato !== 'Todos' || appliedAdvancedFilters.culinaria !== 'Todos';
+
+  const ordenacaoSelecionada = OPCOES_ORDENACAO.find((opcao) => opcao.ordenarPor === ordenacao.ordenarPor && opcao.ordem === ordenacao.ordem);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0D1912' : '#FBF8F3' }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -183,6 +215,23 @@ export default function SearchScreen({ navigation, theme }: any) {
             </TouchableOpacity>
           )}
         </View>
+        <View style={styles.sortSection}>
+          <View style={styles.sortTitleRow}>
+            <Feather name="filter" size={14} color={isDark ? '#A2B3A7' : '#8C7A6B'} />
+            <Text style={[styles.sortTitle, { color: isDark ? '#A2B3A7' : '#6A5B4F' }]}>Ordenar por</Text>
+            <Text style={[styles.sortSelected, { color: isDark ? '#FAF6F0' : '#2C2016' }]}>{ordenacaoSelecionada?.label}</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {OPCOES_ORDENACAO.map((opcao) => {
+              const isActive = opcao.ordenarPor === ordenacao.ordenarPor && opcao.ordem === ordenacao.ordem;
+              return (
+                <TouchableOpacity key={opcao.label} onPress={() => handleOrdenacao(opcao)} style={[styles.sortChip, { backgroundColor: isActive ? '#2E4A2E' : isDark ? '#15251C' : '#FFFFFF', borderColor: isActive ? '#2E4A2E' : isDark ? '#2D4536' : '#DDD4C8' }]}>
+                  <Text style={{ color: isActive ? '#FAF6F0' : isDark ? '#A2B3A7' : '#6A5B4F', fontWeight: isActive ? '700' : '500', fontSize: 12 }}>{opcao.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
         {isLoading ? (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color="#2E4A2E" />
@@ -244,6 +293,7 @@ export default function SearchScreen({ navigation, theme }: any) {
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
@@ -270,6 +320,11 @@ const styles = StyleSheet.create({
   resultsTitle: { fontSize: 18, fontWeight: '700' },
   resultsCount: { fontSize: 13, marginTop: 2 },
   seeAllText: { fontSize: 12, color: '#C46B3E', fontWeight: '700' },
+  sortSection: { marginBottom: 20 },
+  sortTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  sortTitle: { fontSize: 12, fontWeight: '600' },
+  sortSelected: { fontSize: 12, fontWeight: '700', marginLeft: 2 },
+  sortChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1.5, marginRight: 8 },
   centerState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30 },
   errorIconContainer: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   stateText: { fontSize: 13, textAlign: 'center', marginTop: 8, maxWidth: 280 },

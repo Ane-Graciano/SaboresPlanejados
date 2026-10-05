@@ -7,6 +7,7 @@ export const receitas: Receita[] = [
     tempo: '35 min',
     categoriaId: '1',
     isSaudavel: false,
+    dataAdicao: '2026-09-01',
 
     imagem:
       'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=780&h=560&fit=crop&auto=format',
@@ -104,6 +105,7 @@ export const receitas: Receita[] = [
     tempo: '40 min',
     categoriaId: '2',
     isSaudavel: false,
+    dataAdicao: '2026-09-05',
 
     imagem:
       'https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=780&h=560&fit=crop&auto=format',
@@ -201,6 +203,7 @@ export const receitas: Receita[] = [
     tempo: '15 min',
     categoriaId: '3',
     isSaudavel: true,
+    dataAdicao: '2026-09-10',
 
     imagem:
       'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=780&h=560&fit=crop&auto=format',
@@ -292,6 +295,7 @@ export const receitas: Receita[] = [
     tempo: '30 min',
     categoriaId: '4',
     isSaudavel: false,
+    dataAdicao: '2026-09-15',
 
     imagem:
       'https://images.unsplash.com/photo-1547592180-85f173990554?w=780&h=560&fit=crop&auto=format',
