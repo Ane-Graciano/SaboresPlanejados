@@ -72,7 +72,7 @@ export default function ProfileStatsRow({ favoritosCount, planejadasCount, salva
 const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
-    justify: 'space-between',
+    justifyContent: 'space-between',
     marginVertical: 16,
     gap: 10,
   },

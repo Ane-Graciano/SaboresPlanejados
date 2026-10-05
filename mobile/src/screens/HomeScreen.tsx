@@ -35,10 +35,16 @@ import {
   toggleFavoritoStorage,
 } from '../utils/storage';
 
-export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
+export default function HomeScreen({
+  navigation,
+  theme,
+  toggleTheme,
+}: any) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('Hoje');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    null,
+  );
 
   const [receitas, setReceitas] = useState<any[]>([]);
   const [receitasDestaque, setReceitasDestaque] = useState<any[]>([]);
@@ -52,11 +58,13 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
   const [carregandoDestaques, setCarregandoDestaques] = useState(true);
   const [carregandoSazonais, setCarregandoSazonais] = useState(true);
   const [carregandoTema, setCarregandoTema] = useState(true);
+  const [surpreendendo, setSurpreendendo] = useState(false);
 
   const [erroReceitas, setErroReceitas] = useState(false);
   const [erroDestaques, setErroDestaques] = useState(false);
   const [erroSazonais, setErroSazonais] = useState(false);
   const [erroTema, setErroTema] = useState(false);
+
   const [favorites, setFavorites] = useState<Receita[]>([]);
 
   const isDark = theme === 'dark';
@@ -80,6 +88,7 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
       try {
         setCarregandoReceitas(true);
         setErroReceitas(false);
+
         const receitas = await buscarTodasReceitas();
         setReceitas(receitas);
       } catch (error) {
@@ -92,6 +101,7 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
       try {
         setCarregandoDestaques(true);
         setErroDestaques(false);
+
         const receitas = await buscarReceitasEmDestaque();
         setReceitasDestaque(receitas);
       } catch (error) {
@@ -104,7 +114,9 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
       try {
         setCarregandoSazonais(true);
         setErroSazonais(false);
+
         const resposta = await buscarReceitasSazonais();
+
         setEstacaoAtual(resposta.estacao);
         setReceitasSazonais(resposta.receitas);
       } catch (error) {
@@ -117,7 +129,9 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
       try {
         setCarregandoTema(true);
         setErroTema(false);
+
         const resposta = await buscarReceitasPorTema();
+
         setTemaAtual(resposta.tema);
         setReceitasTema(resposta.receitas);
       } catch (error) {
@@ -131,7 +145,6 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
     carregarDadosHome();
   }, []);
 
-
   const toggleFav = async (receita: Receita) => {
     try {
       const novaLista = await toggleFavoritoStorage(receita);
@@ -143,6 +156,22 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
 
   const handleAbrirDetalhes = (receita: any) => {
     navigation?.navigate('Detalhes', { receita });
+  };
+
+  const handleSurpreendaMe = () => {
+    if (surpreendendo || receitas.length === 0) {
+      return;
+    }
+
+    setSurpreendendo(true);
+
+    setTimeout(() => {
+      const indice = Math.floor(Math.random() * receitas.length);
+      const receitaSorteada = receitas[indice];
+
+      setSurpreendendo(false);
+      handleAbrirDetalhes(receitaSorteada);
+    }, 800);
   };
 
   const handleLimparFiltros = () => {
@@ -287,6 +316,55 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
           )}
         </View>
 
+        <TouchableOpacity
+          style={[
+            styles.surpreendaButton,
+            {
+              backgroundColor: isDark ? '#294B34' : '#2E4A2E',
+            },
+            surpreendendo && styles.surpreendaButtonDisabled,
+          ]}
+          activeOpacity={0.85}
+          onPress={handleSurpreendaMe}
+          disabled={surpreendendo}
+        >
+          {surpreendendo ? (
+            <ActivityIndicator
+              size="small"
+              color="#FAF6F0"
+            />
+          ) : (
+            <Feather
+              name="shuffle"
+              size={19}
+              color="#FAF6F0"
+            />
+          )}
+
+          <Text style={styles.surpreendaText}>
+            {surpreendendo
+              ? 'Escolhendo uma receita...'
+              : 'Surpreenda-me'}
+          </Text>
+        </TouchableOpacity>
+
+        {!carregandoReceitas &&
+          !erroReceitas &&
+          receitas.length === 0 && (
+            <View style={styles.surpreendaEmpty}>
+              <Text
+                style={[
+                  styles.surpreendaEmptyText,
+                  {
+                    color: isDark ? '#A2B3A7' : '#8C7A6B',
+                  },
+                ]}
+              >
+                Nenhuma receita disponível para sortear.
+              </Text>
+            </View>
+          )}
+
         <View style={styles.sectionHeader}>
           <Text
             style={[
@@ -306,6 +384,7 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
               size="small"
               color={isDark ? '#82B382' : '#6B8C6B'}
             />
+
             <Text
               style={[
                 styles.stateText,
@@ -326,6 +405,7 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
               size={22}
               color="#C46B3E"
             />
+
             <Text
               style={[
                 styles.stateText,
@@ -635,7 +715,10 @@ export default function HomeScreen({ navigation, theme, toggleTheme }: any) {
                 <RecipeCard
                   key={r.id}
                   receita={r}
-                  isFav={favorites.some((item) => String(item.id) === String(r.id))}
+                  isFav={favorites.some(
+                    (item) =>
+                      String(item.id) === String(r.id),
+                  )}
                   onToggleFav={() => toggleFav(r)}
                   onPress={() => handleAbrirDetalhes(r)}
                   isDark={isDark}
@@ -727,6 +810,33 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     height: '100%',
+  },
+  surpreendaButton: {
+    marginHorizontal: 22,
+    marginTop: 12,
+    height: 48,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
+  surpreendaButtonDisabled: {
+    opacity: 0.75,
+  },
+  surpreendaText: {
+    color: '#FAF6F0',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  surpreendaEmpty: {
+    marginHorizontal: 22,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  surpreendaEmptyText: {
+    fontSize: 12,
+    textAlign: 'center',
   },
   sectionHeader: {
     paddingHorizontal: 22,

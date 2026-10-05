@@ -4,19 +4,18 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
-  initializeAuth,
-  getReactNativePersistence,
   signOut,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth';
+
+import { app } from './firebaseConfig';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { app } from './firebaseConfig';
 // import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+export const auth = getAuth(app);
 
 // GoogleSignin.configure({
 //   webClientId:
@@ -28,21 +27,17 @@ export const cadastrarUsuario = async (
   email: string,
   senha: string,
 ) => {
-  try {
-    const resultado = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      senha,
-    );
+  const resultado = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    senha,
+  );
 
-    await updateProfile(resultado.user, {
-      displayName: nome,
-    });
+  await updateProfile(resultado.user, {
+    displayName: nome,
+  });
 
-    return resultado.user;
-  } catch (error) {
-    throw error;
-  }
+  return resultado.user;
 };
 
 export const entrarComEmailESenha = async (
@@ -84,6 +79,24 @@ export const recuperarSenha = async (email: string) => {
 
 //   return usuario.user;
 // };
+
+export const atualizarNomeUsuario = async (
+  nome: string,
+) => {
+  const usuario = auth.currentUser;
+
+  if (!usuario) {
+    throw new Error(
+      'Nenhum usuário autenticado.',
+    );
+  }
+
+  await updateProfile(usuario, {
+    displayName: nome,
+  });
+
+  return usuario;
+};
 
 export const sair = async () => {
   await signOut(auth);
