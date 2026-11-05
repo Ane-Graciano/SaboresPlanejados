@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import PerfilScreen from '../screens/PerfilScreen';
 import SearchScreen from '../screens/SearchScreen';
+import PlannerScreen from '../screens/PlannerScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,14 +26,12 @@ const TEMAS: Record<ThemeType, { border: string; tabBg: string; activeTab: strin
   },
 };
 
-// 2. Interface de props para o TabNavigator
 interface TabNavigatorProps {
   theme?: ThemeType;
   toggleTheme?: () => void;
 }
 
 export default function TabNavigator({ theme = 'dark', toggleTheme }: TabNavigatorProps) {
-  // Acesso seguro ao objeto TEMAS
   const t = TEMAS[theme] || TEMAS.dark;
 
   return (
@@ -69,6 +68,16 @@ export default function TabNavigator({ theme = 'dark', toggleTheme }: TabNavigat
         }}
       >
         {(props) => <SearchScreen {...props} theme={theme} toggleTheme={toggleTheme} />}
+      </Tab.Screen>
+
+      <Tab.Screen
+        name="Planner"
+        options={{
+          tabBarLabel: 'Planejar',
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size - 2} color={color} />,
+        }}
+      >
+        {(props) => <PlannerScreen {...props} theme={theme} toggleTheme={toggleTheme} />}
       </Tab.Screen>
 
       <Tab.Screen

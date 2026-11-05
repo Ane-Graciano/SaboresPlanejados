@@ -18,7 +18,7 @@ const OPCOES_ORDENACAO = [
   { label: 'Mais recentes', ordenarPor: 'data' as const, ordem: 'desc' as const },
 ];
 
-export default function SearchScreen({ navigation, theme }: any) {
+export default function SearchScreen({ navigation,route, theme }: any) {
   const isDark = theme === 'dark';
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('Hoje');
@@ -263,7 +263,13 @@ export default function SearchScreen({ navigation, theme }: any) {
             {filteredRecipes.map((recipe) => {
               const isFav = favorites.some((favorite) => favorite.id === recipe.id);
               return (
-                <TouchableOpacity key={recipe.id} style={[styles.card, { backgroundColor: isDark ? '#15251C' : '#FFFFFF', borderColor: isDark ? '#233A2C' : '#EDE8E1' }]} onPress={() => navigation.navigate('Detalhes', { receita: recipe })}>
+                <TouchableOpacity key={recipe.id} style={[styles.card, { backgroundColor: isDark ? '#15251C' : '#FFFFFF', borderColor: isDark ? '#233A2C' : '#EDE8E1' }]} onPress={() => {
+                  const modoSelecao = route?.params?.modoSelecao || false;
+                  navigation.navigate('Detalhes', {
+                    receita: recipe,
+                    modoSelecao: modoSelecao
+                  });
+                }}>
                   <View style={styles.cardImageContainer}>
                     <Image source={{ uri: recipe.imagem }} style={styles.cardImage} />
                     <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleFavorite(recipe); }} style={styles.favoriteBtn}>
@@ -278,7 +284,13 @@ export default function SearchScreen({ navigation, theme }: any) {
                         <Feather name="clock" size={13} color={isDark ? '#A2B3A7' : '#8C7A6B'} />
                         <Text style={[styles.infoText, { color: isDark ? '#A2B3A7' : '#6A5B4F' }]}>{recipe.tempo}</Text>
                       </View>
-                      <TouchableOpacity style={styles.viewBtn} onPress={() => navigation.navigate('Detalhes', { receita: recipe })}>
+                      <TouchableOpacity style={styles.viewBtn} onPress={() => {
+                        const modoSelecao = route?.params?.modoSelecao || false;
+                        navigation.navigate('Detalhes', {
+                          receita: recipe,
+                          modoSelecao: modoSelecao
+                        });
+                      }}>
                         <Text style={styles.viewBtnText}>Ver receita</Text>
                       </TouchableOpacity>
                     </View>

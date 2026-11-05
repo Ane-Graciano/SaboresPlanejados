@@ -11,6 +11,7 @@ import ReadingModeScreen from '../screens/ReadingModeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import SearchScreen from '../screens/SearchScreen';
+import PlannerScreen from '../screens/PlannerScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +62,16 @@ export default function AppNavigator({
             <Stack.Screen name="Buscar">
               {(props) => (
                 <SearchScreen
+                  {...props}
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="Planner">
+              {(props) => (
+                <PlannerScreen
                   {...props}
                   theme={theme}
                   toggleTheme={toggleTheme}
