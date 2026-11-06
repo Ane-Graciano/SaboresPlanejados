@@ -8,6 +8,7 @@ import TabNavigator from './TabNavigator';
 import DetalhesScreen from '../screens/DetalhesScreen';
 import FavoritosScreen from '../screens/FavoritosScreen';
 import ReadingModeScreen from '../screens/ReadingModeScreen';
+import PantryScreen from '../screens/PantryScreen'; // <-- Importando a tela da despensa
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import SearchScreen from '../screens/SearchScreen';
@@ -75,6 +76,17 @@ export default function AppNavigator({
                   {...props}
                   theme={theme}
                   toggleTheme={toggleTheme}
+                />
+              )}
+            </Stack.Screen>
+
+            {/* Rota da Despensa acionada via Perfil */}
+            <Stack.Screen name="Pantry">
+              {(props) => (
+                <PantryScreen
+                  {...props}
+                  theme={theme}
+                  onNavigate={(screenName, params) => props.navigation.navigate(screenName, params)}
                 />
               )}
             </Stack.Screen>

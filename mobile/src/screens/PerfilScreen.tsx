@@ -98,6 +98,11 @@ export default function PerfilScreen({
     navigation.navigate('Favoritos');
   };
 
+  // Função para navegar para a tela de Despensa a partir do Perfil
+  const handleNavigatePantry = () => {
+    navigation.navigate('Pantry');
+  };
+
   const handleAbrirEdicao = () => {
     setNomeEditado(nome);
     setShowEditModal(true);
@@ -189,6 +194,7 @@ export default function PerfilScreen({
           onNavigateFavoritos={
             handleNavigateFavoritos
           }
+          onNavigatePantry={handleNavigatePantry} 
           onOpenLogoutModal={() =>
             setShowLogoutModal(true)
           }

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 
 import HeroHeader from '../components/HeroHeader';
 import SeletorPorcoes from '../components/SeletorPorcoes';
@@ -18,6 +18,8 @@ import CardIngredientes from '../components/CardIngredientes';
 import ItemPasso from '../components/ItemPasso';
 import Divisor from '../components/Divisor';
 import { usePlanner } from '../context/PlannerContext';
+import { useShoppingList } from '../context/ShoppingListContext';
+import { usePantry } from '../context/PantryContext'; // <-- Importando o contexto da despensa
 
 import {
   getFavoritos,
@@ -49,10 +51,12 @@ export default function DetalhesScreen({
   route,
 }: DetalhesScreenProps) {
   const { adicionarRefeicaoNoPlano } = usePlanner();
+  const { gerarDaReceita } = useShoppingList();
+  const { possuiIngrediente } = usePantry(); // <-- Função para checar se o ingrediente está na despensa
+
   const receitaRecebida = route?.params?.receita;
   const modoSelecao = route?.params?.modoSelecao || false;
 
-  // Garante que pegamos o ID correto independentemente de como a tela foi aberta
   const receitaId = route?.params?.receitaId || receitaRecebida?.id;
 
   const [receita, setReceita] = useState<Receita | null>(
@@ -99,7 +103,6 @@ export default function DetalhesScreen({
       setError(null);
       setIsNotFound(false);
 
-      // Sempre busca pelo ID correto para garantir que traga todos os dados e não abra errado
       const resultado = await buscarReceitaPorId(String(receitaId));
 
       if (!resultado) {
@@ -197,6 +200,16 @@ export default function DetalhesScreen({
     }
   };
 
+  const handleGerarListaCompras = (): void => {
+    if (!receita) return;
+
+    gerarDaReceita(receita, porcoes);
+
+    if (navigation?.navigate) {
+      navigation.navigate('MainTabs', { screen: 'Shopping' });
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -289,11 +302,37 @@ export default function DetalhesScreen({
                 />
               </View>
 
+              {/* Card de ingredientes com verificação visual de estoque */}
               <CardIngredientes
                 ingredientes={receita.ingredientes}
                 porcoesBase={porcoesOriginais}
                 porcoesAtuais={porcoes}
               />
+
+              {/* Lista detalhada adicional com badges Em estoque / Faltando */}
+              <View style={styles.estoqueListContainer}>
+                {receita.ingredientes.map((ing, index) => {
+                  const nomeIng = ing.nome || '';
+                  const emEstoque = possuiIngrediente(nomeIng);
+
+                  return (
+                    <View key={index} style={styles.estoqueItemRow}>
+                      <View style={[styles.estoqueDot, { backgroundColor: emEstoque ? '#6B8C6B' : '#C46B3E' }]} />
+                      <Text style={styles.estoqueItemNome}>{nomeIng}</Text>
+                      <View style={[styles.badgeEstoque, emEstoque ? styles.badgeEmEstoque : styles.badgeFaltando]}>
+                        <Feather
+                          name={emEstoque ? "check" : "alert-circle"}
+                          size={12}
+                          color={emEstoque ? "#4A7A4A" : "#C46B3E"}
+                        />
+                        <Text style={[styles.textoBadgeEstoque, { color: emEstoque ? "#4A7A4A" : "#C46B3E" }]}>
+                          {emEstoque ? 'Em estoque' : 'Faltando'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
 
               <Text style={styles.servingsNote}>
                 Quantidades ajustadas para {porcoes} porção{porcoes !== 1 ? 'ões' : ''}
@@ -379,10 +418,16 @@ export default function DetalhesScreen({
         )}
       </ScrollView>
 
+      {/* Botões de Ação Inferiores */}
       <View style={styles.fixedBottomContainer}>
         <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8}>
           <Ionicons name="play-circle-outline" size={18} color="#2E4A2E" />
           <Text style={styles.secondaryButtonText}>Vídeo e informações nutricionais</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionShoppingButton} activeOpacity={0.85} onPress={handleGerarListaCompras}>
+          <Ionicons name="cart-outline" size={16} color="#FAF6F0" />
+          <Text style={styles.actionShoppingButtonText}>Gerar lista de compras</Text>
         </TouchableOpacity>
 
         {route?.params?.modoSelecao && (
@@ -438,8 +483,18 @@ const styles = StyleSheet.create({
   fixedBottomContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FAF8F5', paddingHorizontal: 22, paddingTop: 10, paddingBottom: 20, borderTopWidth: 1, borderTopColor: '#E8E2D9' },
   secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D2E3D2', borderRadius: 14, paddingVertical: 12, marginBottom: 8 },
   secondaryButtonText: { fontSize: 14, fontWeight: 'bold', color: '#2E4A2E' },
+  actionShoppingButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#3E6A8A', borderRadius: 14, paddingVertical: 12, marginBottom: 8 },
+  actionShoppingButtonText: { fontSize: 14, fontWeight: 'bold', color: '#FAF6F0' },
   actionPlannerButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#6B8C6B', borderRadius: 14, paddingVertical: 12, marginBottom: 8 },
   actionPlannerButtonText: { fontSize: 14, fontWeight: 'bold', color: '#FAF6F0' },
   primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#2E4A2E', borderRadius: 18, paddingVertical: 16 },
   primaryButtonText: { fontSize: 16, fontWeight: 'bold', color: '#FAF6F0' },
+  estoqueListContainer: { marginTop: 12, gap: 8 },
+  estoqueItemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#EFEBE4' },
+  estoqueDot: { width: 6, height: 6, borderRadius: 3 },
+  estoqueItemNome: { flex: 1, fontSize: 13, color: '#2C2016', fontWeight: '500' },
+  badgeEstoque: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  badgeEmEstoque: { backgroundColor: '#EEF5EE' },
+  badgeFaltando: { backgroundColor: '#FDF0EB' },
+  textoBadgeEstoque: { fontSize: 11, fontWeight: 'bold' },
 });

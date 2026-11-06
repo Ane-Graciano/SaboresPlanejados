@@ -6,8 +6,9 @@ import { AdvancedFilterModal } from '../components/AdvancedFilterModal';
 import { buscarTodasReceitas, buscarReceitas, FiltrosReceita, OrdenacaoReceita } from '../services/receitaApiService';
 import { Receita } from '../model/receita';
 import { getFavoritos, toggleFavoritoStorage } from '../utils/storage';
+import { usePantry } from '../context/PantryContext'; // <-- Importando o contexto da despensa
 
-const FILTROS_RAPIDOS = ['Hoje', 'Rápido', 'Saudável'];
+const FILTROS_RAPIDOS = ['Hoje', 'Rápido', 'Saudável', 'Com o que tenho']; // <-- Novo filtro rápido integrado
 const CATEGORIAS_FIGMA = [{ id: '1', label: 'Por ingrediente', icon: '🥕', bg: '#FFF5EE' }, { id: '2', label: 'Por tipo de prato', icon: '🍽️', bg: '#F2F6F3' }, { id: '3', label: 'Por culinária', icon: '🌐', bg: '#F0F7FF' }, { id: '4', label: 'Por chef', icon: '👨‍🍳', bg: '#FFF8E7' }];
 const FILTROS_INICIAIS = { maxTime: 60, ingredient: 'Todos', chef: 'Todos', tipoPrato: 'Todos', culinaria: 'Todos' };
 
@@ -18,8 +19,10 @@ const OPCOES_ORDENACAO = [
   { label: 'Mais recentes', ordenarPor: 'data' as const, ordem: 'desc' as const },
 ];
 
-export default function SearchScreen({ navigation,route, theme }: any) {
+export default function SearchScreen({ navigation, route, theme }: any) {
   const isDark = theme === 'dark';
+  const { calcularMatchReceita } = usePantry(); // <-- Função de match com a despensa
+
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('Hoje');
   const [recipes, setRecipes] = useState<Receita[]>([]);
@@ -122,7 +125,15 @@ export default function SearchScreen({ navigation,route, theme }: any) {
     executarBusca(montarFiltros(), novaOrdenacao);
   };
 
-  const filteredRecipes = activeFilter === 'Saudável' ? recipes.filter((recipe) => recipe.isSaudavel) : recipes;
+  // Filtragem local baseada nas abas rápidas (Saudável e Com o que tenho)
+  const filteredRecipes = recipes.filter((recipe) => {
+    if (activeFilter === 'Saudável' && !recipe.isSaudavel) return false;
+    if (activeFilter === 'Com o que tenho') {
+      const match = calcularMatchReceita(recipe);
+      return match.podeCozinharIntegralmente;
+    }
+    return true;
+  });
 
   const handleApplyFilters = (filters: typeof FILTROS_INICIAIS) => {
     setAppliedAdvancedFilters(filters);
@@ -262,6 +273,8 @@ export default function SearchScreen({ navigation,route, theme }: any) {
           <View style={styles.recipeList}>
             {filteredRecipes.map((recipe) => {
               const isFav = favorites.some((favorite) => favorite.id === recipe.id);
+              const match = calcularMatchReceita(recipe); // <-- Status de match da despensa para cada card
+
               return (
                 <TouchableOpacity key={recipe.id} style={[styles.card, { backgroundColor: isDark ? '#15251C' : '#FFFFFF', borderColor: isDark ? '#233A2C' : '#EDE8E1' }]} onPress={() => {
                   const modoSelecao = route?.params?.modoSelecao || false;
@@ -278,6 +291,15 @@ export default function SearchScreen({ navigation,route, theme }: any) {
                   </View>
                   <View style={styles.cardContent}>
                     <Text style={[styles.cardTitle, { color: isDark ? '#FAF6F0' : '#2C2016' }]}>{recipe.titulo}</Text>
+                    
+                    {/* Badge indicando se tem os ingredientes em casa */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Feather name={match.podeCozinharIntegralmente ? "check-circle" : "alert-circle"} size={12} color={match.podeCozinharIntegralmente ? "#4A7A4A" : "#C46B3E"} />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: match.podeCozinharIntegralmente ? "#4A7A4A" : "#C46B3E" }}>
+                        {match.podeCozinharIntegralmente ? "Pronta com o que você tem ✓" : `Faltam ${match.faltandoCount} ingredientes`}
+                      </Text>
+                    </View>
+
                     <Text style={{ fontSize: 12, color: isDark ? '#A2B3A7' : '#8C7A6B', marginBottom: 10 }}>{recipe.chef} • {recipe.culinaria}</Text>
                     <View style={styles.cardFooter}>
                       <View style={styles.infoGroup}>

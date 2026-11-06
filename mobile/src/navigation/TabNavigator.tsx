@@ -6,6 +6,7 @@ import HomeScreen from '../screens/HomeScreen';
 import PerfilScreen from '../screens/PerfilScreen';
 import SearchScreen from '../screens/SearchScreen';
 import PlannerScreen from '../screens/PlannerScreen';
+import ShoppingListScreen from '../screens/ShoppingListScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -78,6 +79,16 @@ export default function TabNavigator({ theme = 'dark', toggleTheme }: TabNavigat
         }}
       >
         {(props) => <PlannerScreen {...props} theme={theme} toggleTheme={toggleTheme} />}
+      </Tab.Screen>
+
+      <Tab.Screen
+        name="Shopping"
+        options={{
+          tabBarLabel: 'Compras',
+          tabBarIcon: ({ color, size }) => <Feather name="shopping-bag" size={size - 2} color={color} />,
+        }}
+      >
+        {(props) => <ShoppingListScreen {...props} theme={theme} toggleTheme={toggleTheme} />}
       </Tab.Screen>
 
       <Tab.Screen

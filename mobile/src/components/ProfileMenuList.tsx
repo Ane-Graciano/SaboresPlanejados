@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 interface ProfileMenuListProps {
   onNavigateFavoritos: () => void;
+  onNavigatePantry: () => void; // <-- Adicionado na interface
   onOpenLogoutModal: () => void;
   onDirectLogout: () => void;
   isDark: boolean;
@@ -12,6 +13,7 @@ interface ProfileMenuListProps {
 
 export default function ProfileMenuList({
   onNavigateFavoritos,
+  onNavigatePantry, // <-- Recebido nas props
   onOpenLogoutModal,
   onDirectLogout,
   isDark,
@@ -31,6 +33,18 @@ export default function ProfileMenuList({
           <View style={styles.rowTextContainer}>
             <Text style={[styles.rowLabel, isDark && styles.textDark]}>Favoritos</Text>
             <Text style={styles.rowSub}>Suas receitas salvas</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
+        </TouchableOpacity>
+
+        {/* Botão Minha Despensa adicionado aqui */}
+        <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={onNavigatePantry}>
+          <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
+            <Ionicons name="basket-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
+          </View>
+          <View style={styles.rowTextContainer}>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>Minha despensa</Text>
+            <Text style={styles.rowSub}>Ingredientes disponíveis em casa</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
         </TouchableOpacity>

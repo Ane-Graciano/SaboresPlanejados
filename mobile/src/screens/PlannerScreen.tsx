@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import { usePlanner } from '../context/PlannerContext';
 import { SeletorDias } from '../components/SeletorDias';
 import { CardSlotRefeicao } from '../components/CardSlotRefeicao';
 import { TipoRefeicao } from '../types/planner';
+import { useShoppingList } from '../context/ShoppingListContext';
 
 const todosOsDiasCompletos = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 
@@ -34,17 +35,31 @@ export default function PlannerScreen({ navigation }: any) {
     descricaoUltimaAcao
   } = usePlanner();
 
+  const { gerarDoPlanejamentoSemanal } = useShoppingList();
+
   const hoje = new Date();
   const diaSemanaHoje = hoje.getDay();
-  const distanciaAteSegunda = diaSemanaHoje === 0 ? -6 : 1 - diaSemanaHoje;
+  const hojeIndex = diaSemanaHoje === 0 ? 6 : diaSemanaHoje - 1;
 
+  useEffect(() => {
+    if (diaSelecionado === undefined || diaSelecionado === null) {
+      setDiaSelecionado(hojeIndex >= 0 && hojeIndex < 7 ? hojeIndex : 0);
+    }
+  }, []);
+
+  const distanciaAteSegunda = diaSemanaHoje === 0 ? -6 : 1 - diaSemanaHoje;
   const segundaFeiraDaSemana = new Date(hoje);
   segundaFeiraDaSemana.setDate(hoje.getDate() + distanciaAteSegunda);
 
-  const dataSelecionada = new Date(segundaFeiraDaSemana);
-  dataSelecionada.setDate(segundaFeiraDaSemana.getDate() + diaSelecionado);
+  const indiceSeguro = (diaSelecionado >= 0 && diaSelecionado < todosOsDiasCompletos.length) ? diaSelecionado : 0;
 
-  const nomeDiaFormatado = todosOsDiasCompletos[diaSelecionado];
+  // TRAVA DE DIA PASSADO: Verifica se o dia selecionado é anterior a hoje
+  const ehDiaPassado = indiceSeguro < hojeIndex;
+
+  const dataSelecionada = new Date(segundaFeiraDaSemana);
+  dataSelecionada.setDate(segundaFeiraDaSemana.getDate() + indiceSeguro);
+
+  const nomeDiaFormatado = todosOsDiasCompletos[indiceSeguro] || "Segunda";
   const numeroDia = dataSelecionada.getDate();
   const nomeMesFormatado = dataSelecionada.toLocaleDateString('pt-BR', { month: 'long' });
 
@@ -54,8 +69,8 @@ export default function PlannerScreen({ navigation }: any) {
   const themeBorder = isDark ? '#233A2C' : '#DDD4C8';
   const cardBg = isDark ? '#1F3326' : '#F7F3EE';
 
-  const dadosDia = (plano && plano[diaSelecionado])
-    ? plano[diaSelecionado]
+  const dadosDia = (plano && plano[indiceSeguro])
+    ? plano[indiceSeguro]
     : { cafeDaManha: null, almoco: null, jantar: null, extras: [] };
 
   const preenchidosFixos = [dadosDia.cafeDaManha, dadosDia.almoco, dadosDia.jantar].filter(Boolean).length;
@@ -91,7 +106,7 @@ export default function PlannerScreen({ navigation }: any) {
 
         <View style={styles.seletorIntervalo}>
           <Text style={[styles.rotuloIntervalo, { color: themeMuted }]}>Visualizar:</Text>
-          {[3, 5, 7].map((num) => (
+          {[3, 5, 7, 30].map((num) => (
             <TouchableOpacity
               key={num}
               onPress={() => setTotalDias(num)}
@@ -103,8 +118,8 @@ export default function PlannerScreen({ navigation }: any) {
                 }
               ]}
             >
-              <Text style={{ color: totalDias === num ? '#FAF6F0' : themeText, fontSize: 12, fontWeight: 'bold' }}>
-                {num} dias
+              <Text style={{ color: totalDias === num ? '#FAF6F0' : themeText, fontSize: 11.5, fontWeight: 'bold' }}>
+                {num === 30 ? '30 dias' : `${num} dias`}
               </Text>
             </TouchableOpacity>
           ))}
@@ -119,7 +134,7 @@ export default function PlannerScreen({ navigation }: any) {
         </View>
 
         <SeletorDias
-          diaSelecionado={diaSelecionado}
+          diaSelecionado={indiceSeguro}
           totalDias={totalDias}
           onSelecionarDia={setDiaSelecionado}
           isDark={isDark}
@@ -141,12 +156,10 @@ export default function PlannerScreen({ navigation }: any) {
                 rotulo={rotulo}
                 emoji={emoji}
                 refeicao={dadosDia[chaveFixa]}
-                onRemover={() => removerRefeicao(diaSelecionado, key)}
-                onAtualizarPorcoes={(novasPorcoes) =>
-                  atualizarPorcoes(diaSelecionado, key, novasPorcoes)
-                }
-                onAdicionarPressionado={() => {
-                  iniciarAdicaoRefeicao(diaSelecionado, key);
+                onRemover={ehDiaPassado ? () => { } : () => removerRefeicao(indiceSeguro, key)}
+                onAtualizarPorcoes={ehDiaPassado ? () => { } : (novasPorcoes) => atualizarPorcoes(indiceSeguro, key, novasPorcoes)}
+                onAdicionarPressionado={ehDiaPassado ? () => { } : () => {
+                  iniciarAdicaoRefeicao(indiceSeguro, key);
                   navigation.navigate('Buscar', { modoSelecao: true });
                 }}
                 onPressDetalhes={() => {
@@ -171,10 +184,8 @@ export default function PlannerScreen({ navigation }: any) {
               rotulo={refeicaoExtra.categoria || `Extra ${index + 1}`}
               emoji="🍏"
               refeicao={refeicaoExtra}
-              onRemover={() => removerRefeicao(diaSelecionado, index)}
-              onAtualizarPorcoes={(novasPorcoes) =>
-                atualizarPorcoes(diaSelecionado, index, novasPorcoes)
-              }
+              onRemover={ehDiaPassado ? () => { } : () => removerRefeicao(indiceSeguro, index)}
+              onAtualizarPorcoes={ehDiaPassado ? () => { } : (novasPorcoes) => atualizarPorcoes(indiceSeguro, index, novasPorcoes)}
               onAdicionarPressionado={() => { }}
               onPressDetalhes={() => {
                 navigation.navigate('Detalhes', {
@@ -187,16 +198,37 @@ export default function PlannerScreen({ navigation }: any) {
             />
           ))}
 
+          {!ehDiaPassado ? (
+            <TouchableOpacity
+              style={styles.botaoAdicionarGeral}
+              activeOpacity={0.8}
+              onPress={() => {
+                iniciarAdicaoRefeicao(indiceSeguro, 'extra');
+                navigation.navigate('Buscar', { modoSelecao: true });
+              }}
+            >
+              <Feather name="plus" size={18} color="#FAF6F0" />
+              <Text style={styles.textoBotaoAdicionar}>Adicionar receita</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.avisoHistorico, { backgroundColor: cardBg, borderColor: themeBorder }]}>
+              <Feather name="clock" size={14} color={themeMuted} />
+              <Text style={[styles.textoAvisoHistorico, { color: themeMuted }]}>
+                Visualizando histórico. Alterações não são permitidas em dias passados.
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
-            style={styles.botaoAdicionarGeral}
-            activeOpacity={0.8}
+            style={styles.botaoGerarCompras}
+            activeOpacity={0.85}
             onPress={() => {
-              iniciarAdicaoRefeicao(diaSelecionado, 'extra');
-              navigation.navigate('Buscar', { modoSelecao: true });
+              gerarDoPlanejamentoSemanal(plano);
+              navigation?.navigate('MainTabs', { screen: 'Shopping' });
             }}
           >
-            <Feather name="plus" size={18} color="#FAF6F0" />
-            <Text style={styles.textoBotaoAdicionar}>Adicionar receita</Text>
+            <Feather name="zap" size={16} color="#FAF6F0" />
+            <Text style={styles.textoBotaoGerarCompras}>Gerar compras da semana</Text>
           </TouchableOpacity>
         </View>
 
@@ -219,9 +251,9 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 24, fontWeight: 'bold' },
   grupoHistorico: { flexDirection: 'row', gap: 8 },
   botaoHistorico: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  seletorIntervalo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 12 },
+  seletorIntervalo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 12 },
   rotuloIntervalo: { fontSize: 12, fontWeight: '600' },
-  chipIntervalo: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  chipIntervalo: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
   containerProgresso: { marginVertical: 10 },
   rotulosProgresso: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   textoProgresso: { fontSize: 12, fontWeight: '600' },
@@ -238,6 +270,36 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   textoBotaoAdicionar: {
+    color: '#FAF6F0',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  avisoHistorico: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 12,
+  },
+  textoAvisoHistorico: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  botaoGerarCompras: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#3E6A8A',
+    borderRadius: 16,
+    paddingVertical: 14,
+    marginTop: 10,
+  },
+  textoBotaoGerarCompras: {
     color: '#FAF6F0',
     fontSize: 15,
     fontWeight: 'bold',
