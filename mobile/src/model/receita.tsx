@@ -16,6 +16,7 @@ export interface Receita {
   avaliacoesCount?: number;
   dificuldade?: string;
   porcoes?: number;
+  porcoesOriginal?: number;
   descricao: string;
   ingredientes: Ingrediente[];
   passos?: string[];

@@ -88,15 +88,42 @@ export default function CardIngredientes({
       return '';
     }
 
+    let valorNumerico: number;
+
     if (typeof qtd === 'string') {
-      return qtd;
+      const texto = qtd.trim();
+
+      // Aceita frações como "1/2".
+      const fracao = texto.match(/^(\d+)\s*\/\s*(\d+)$/);
+
+      if (fracao) {
+        const numerador = Number(fracao[1]);
+        const denominador = Number(fracao[2]);
+
+        if (denominador === 0) {
+          return qtd;
+        }
+
+        valorNumerico = numerador / denominador;
+      } else {
+        // Aceita números como "500", "1.5" e "1,5".
+        valorNumerico = Number(texto.replace(',', '.'));
+      }
+
+      // Mantém textos que não representam quantidades numéricas.
+      if (!Number.isFinite(valorNumerico)) {
+        return qtd;
+      }
+    } else {
+      valorNumerico = qtd;
     }
 
-    const valor =
-      (qtd / porcoesBase) *
-      porcoesAtuais;
+    const base = porcoesBase > 0 ? porcoesBase : 1;
 
-    return formatarQuantidade(valor);
+    const valorCalculado =
+      (valorNumerico / base) * porcoesAtuais;
+
+    return formatarQuantidade(valorCalculado);
   };
 
   return (
@@ -107,7 +134,7 @@ export default function CardIngredientes({
           style={[
             styles.ingredientItem,
             i < ingredientes.length - 1 &&
-              styles.borderBottom,
+            styles.borderBottom,
           ]}
         >
           <Text style={styles.ingredientName}>

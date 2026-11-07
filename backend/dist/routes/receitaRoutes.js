@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const receitaController_1 = require("../controllers/receitaController");
+const router = (0, express_1.Router)();
+router.get('/', receitaController_1.getTodasReceitas);
+router.get('/destaque', receitaController_1.getReceitasEmDestaque);
+router.get('/sazonais', receitaController_1.getReceitasSazonais);
+router.get('/temas', receitaController_1.getReceitasPorTema);
+router.get('/:id', receitaController_1.getReceitaPorId);
+exports.default = router;

@@ -1,3 +1,4 @@
+
 export type CategoriaIngrediente =
   | 'Hortifruti'
   | 'Carnes'
@@ -6,6 +7,11 @@ export type CategoriaIngrediente =
   | 'Bebidas'
   | 'Outros';
 
+export interface Estabelecimento {
+  id: string;
+  nome: string;
+}
+
 export interface ItemListaCompras {
   id: string;
   nome: string;
@@ -13,4 +19,6 @@ export interface ItemListaCompras {
   unidade: string;
   categoria: CategoriaIngrediente;
   comprado: boolean;
+  lojaId: string;
+  imagemUri?: string;
 }

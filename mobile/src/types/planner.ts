@@ -8,6 +8,7 @@ export interface Refeicao {
   tempo: string;
   imagem: string;
   porcoes: number;
+  porcoesOriginal?: number;
   categoria?: string; 
 }
 

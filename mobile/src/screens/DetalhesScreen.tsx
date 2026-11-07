@@ -244,19 +244,20 @@ export default function DetalhesScreen({
   const porcoesAlteradas = porcoes !== porcoesOriginais;
 
   const handleAdicionarAoPlanejamento = (): void => {
-    if (!receita) return;
+  if (!receita) return;
 
-    adicionarRefeicaoNoPlano({
-      ...receita,
-      porcoes: porcoes,
-    });
+  adicionarRefeicaoNoPlano({
+    ...receita,
+    porcoes: porcoes,
+    porcoesOriginal: receita.porcoes || 3,
+  });
 
-    if (navigation?.navigate) {
-      navigation.navigate('MainTabs', { screen: 'Planner' });
-    } else if (navigation?.goBack) {
-      navigation.goBack();
-    }
-  };
+  if (navigation?.navigate) {
+    navigation.navigate('MainTabs', { screen: 'Planner' });
+  } else if (navigation?.goBack) {
+    navigation.goBack();
+  }
+};
 
   const handleGerarListaCompras = (): void => {
     if (!receita) return;

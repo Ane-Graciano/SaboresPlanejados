@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -19,6 +19,7 @@ model Receita {
   id              String             @id
   titulo          String
   tempo           String
+  dataAdicao      DateTime           @db.Date
   categoriaId     String
   isSaudavel      Boolean
   imagem          String
@@ -26,7 +27,8 @@ model Receita {
   avaliacoesCount Int?
   dificuldade     String?
   porcoes         Int?
-  descricao       String
+  descricao       String             @db.Text
+  historia        String?            @db.Text
   chef             String
   tipoPrato       String
   culinaria       String
@@ -40,6 +42,7 @@ model Receita {
   estacoes        ReceitaEstacao[]
   epocas          ReceitaEpoca[]
 }
+
 
 model ReceitaImagem {
   id        Int      @id @default(autoincrement())

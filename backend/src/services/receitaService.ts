@@ -1,21 +1,123 @@
-import { receitas } from '../data/receitas';
 
-import { Estacao, Receita } from '../models/Receita';
+import prisma from '../lib/prisma';
 
-export const buscarTodasReceitas = (): Receita[] => {
-  return receitas;
+import {
+  Estacao,
+  Epoca,
+  Receita,
+} from '../models/Receita';
+
+import { Prisma } from '../generated/prisma/client';
+
+// Relacionamentos necessários para montar o objeto esperado pelo aplicativo.
+const incluirRelacoes = {
+  imagens: {
+    orderBy: { ordem: 'asc' as const },
+  },
+  ingredientes: {
+    orderBy: { ordem: 'asc' as const },
+    include: {
+      ingrediente: true,
+    },
+  },
+  passos: {
+    orderBy: { ordem: 'asc' as const },
+  },
+  dicas: {
+    orderBy: { ordem: 'asc' as const },
+  },
+  temas: {
+    include: {
+      tema: true,
+    },
+  },
+  estacoes: true,
+  epocas: true,
+} satisfies Prisma.ReceitaInclude;
+
+// Consulta centralizada para reutilizar a estrutura dos relacionamentos.
+const consultarReceitas = () => {
+  return prisma.receita.findMany({
+    include: incluirRelacoes,
+  });
 };
 
-export const buscarReceitasEmDestaque = (): Receita[] => {
-  const quantidade = 3;
+type ReceitaDoBanco = Awaited<
+  ReturnType<typeof consultarReceitas>
+>[number];
 
-  const receitasEmbaralhadas = [...receitas].sort(
+// Converte o formato retornado pelo Prisma para o formato do aplicativo.
+const converterReceita = (
+  receita: ReceitaDoBanco,
+): Receita => {
+  return {
+    id: receita.id,
+    titulo: receita.titulo,
+    tempo: receita.tempo,
+    dataAdicao: receita.dataAdicao.toISOString().slice(0, 10),
+
+    categoriaId: receita.categoriaId,
+    isSaudavel: receita.isSaudavel,
+
+    imagem: receita.imagem,
+    imagens: [
+      receita.imagem,
+      ...receita.imagens.map((imagem) => imagem.url),
+    ],
+
+    avaliacao: receita.avaliacao ?? undefined,
+    avaliacoesCount: receita.avaliacoesCount ?? undefined,
+
+    dificuldade: receita.dificuldade ?? undefined,
+    porcoes: receita.porcoes ?? undefined,
+
+    descricao: receita.descricao,
+    historia: receita.historia ?? undefined,
+
+    ingredientes: receita.ingredientes.map((item) => ({
+      nome: item.ingrediente.nome,
+      qtd: item.qtd ?? undefined,
+      unidade: item.unidade ?? undefined,
+    })),
+
+    passos: receita.passos.map((passo) => passo.texto),
+    dicas: receita.dicas.map((dica) => dica.texto),
+
+    chef: receita.chef,
+    tipoPrato: receita.tipoPrato,
+    culinaria: receita.culinaria,
+
+    temas: receita.temas.map((item) => item.tema.nome),
+    estacoes: receita.estacoes.map(
+      (item) => item.estacao as Estacao,
+    ),
+    epocas: receita.epocas.map(
+      (item) => item.epoca as Epoca,
+    ),
+  };
+};
+
+// Buscar todas as receitas.
+export const buscarTodasReceitas = async (): Promise<Receita[]> => {
+  const registros = await consultarReceitas();
+
+  return registros.map(converterReceita);
+};
+
+// Buscar três receitas em destaque.
+export const buscarReceitasEmDestaque = async (): Promise<Receita[]> => {
+  const registros = await consultarReceitas();
+
+  const receitasConvertidas = registros.map(converterReceita);
+
+  const receitasEmbaralhadas = [...receitasConvertidas].sort(
     () => Math.random() - 0.5,
   );
 
-  return receitasEmbaralhadas.slice(0, quantidade);
+  return receitasEmbaralhadas.slice(0, 3);
 };
 
+// Identificar a estação atual.
 const identificarEstacaoAtual = (): Estacao => {
   const mes = new Date().getMonth() + 1;
 
@@ -34,23 +136,31 @@ const identificarEstacaoAtual = (): Estacao => {
   return 'verao';
 };
 
-export const buscarReceitasSazonais = (): {
+// Buscar receitas da estação atual.
+export const buscarReceitasSazonais = async (): Promise<{
   estacao: Estacao;
   receitas: Receita[];
-} => {
+}> => {
   const estacaoAtual = identificarEstacaoAtual();
 
-  const receitasSazonais = receitas.filter(
-    (receita) =>
-      receita.estacoes?.includes(estacaoAtual) ?? false,
-  );
+  const registros = await prisma.receita.findMany({
+    where: {
+      estacoes: {
+        some: {
+          estacao: estacaoAtual,
+        },
+      },
+    },
+    include: incluirRelacoes,
+  });
 
   return {
     estacao: estacaoAtual,
-    receitas: receitasSazonais,
+    receitas: registros.map(converterReceita),
   };
 };
 
+// Identificar tema comemorativo atual.
 const identificarTemaAtual = (): string | null => {
   const mes = new Date().getMonth() + 1;
 
@@ -65,10 +175,11 @@ const identificarTemaAtual = (): string | null => {
   return null;
 };
 
-export const buscarReceitasPorTema = (): {
+// Buscar receitas relacionadas ao tema atual.
+export const buscarReceitasPorTema = async (): Promise<{
   tema: string | null;
   receitas: Receita[];
-} => {
+}> => {
   const temaAtual = identificarTemaAtual();
 
   if (!temaAtual) {
@@ -78,17 +189,35 @@ export const buscarReceitasPorTema = (): {
     };
   }
 
-  const receitasDoTema = receitas.filter(
-    (receita) =>
-      receita.temas?.includes(temaAtual) ?? false,
-  );
+  const registros = await prisma.receita.findMany({
+    where:
+      temaAtual === 'festa-junina'
+        ? {
+            epocas: {
+              some: {
+                epoca: 'festa_junina',
+              },
+            },
+          }
+        : {
+            temas: {
+              some: {
+                tema: {
+                  nome: temaAtual,
+                },
+              },
+            },
+          },
+    include: incluirRelacoes,
+  });
 
   return {
     tema: temaAtual,
-    receitas: receitasDoTema,
+    receitas: registros.map(converterReceita),
   };
 };
 
+// Filtros disponíveis.
 export interface FiltrosReceita {
   busca?: string;
   ingrediente?: string;
@@ -103,15 +232,14 @@ export type OrdenarPor =
   | 'popularidade'
   | 'data';
 
-export type Ordem =
-  | 'asc'
-  | 'desc';
+export type Ordem = 'asc' | 'desc';
 
 export interface OrdenacaoReceita {
   ordenarPor?: OrdenarPor;
   ordem?: Ordem;
 }
 
+// Ordenar receitas.
 const ordenarReceitas = (
   receitasFiltradas: Receita[],
   ordenacao: OrdenacaoReceita,
@@ -128,149 +256,117 @@ const ordenarReceitas = (
     let comparacao = 0;
 
     if (ordenacao.ordenarPor === 'tempo') {
-      const tempoA = parseInt(a.tempo, 10);
-      const tempoB = parseInt(b.tempo, 10);
-
-      comparacao = tempoA - tempoB;
+      comparacao =
+        parseInt(a.tempo, 10) - parseInt(b.tempo, 10);
     }
 
     if (ordenacao.ordenarPor === 'popularidade') {
-      const popularidadeA = a.avaliacoesCount ?? 0;
-      const popularidadeB = b.avaliacoesCount ?? 0;
-
       comparacao =
-        popularidadeA - popularidadeB;
+        (a.avaliacoesCount ?? 0) -
+        (b.avaliacoesCount ?? 0);
     }
 
     if (ordenacao.ordenarPor === 'data') {
-      const dataA = new Date(a.dataAdicao).getTime();
-      const dataB = new Date(b.dataAdicao).getTime();
-
-      comparacao = dataA - dataB;
+      comparacao =
+        new Date(a.dataAdicao).getTime() -
+        new Date(b.dataAdicao).getTime();
     }
 
-    return ordem === 'desc'
-      ? -comparacao
-      : comparacao;
+    return ordem === 'desc' ? -comparacao : comparacao;
   });
 
   return resultado;
 };
 
-export const buscarReceitas = (
+// Buscar receitas com filtros e ordenação.
+export const buscarReceitas = async (
   filtros: FiltrosReceita,
   ordenacao: OrdenacaoReceita = {},
-): Receita[] => {
-  const receitasFiltradas = receitas.filter(
-    (receita) => {
-      if (filtros.busca) {
-        const busca = filtros.busca.toLowerCase();
+): Promise<Receita[]> => {
+  const where: Prisma.ReceitaWhereInput = {};
 
-        const encontrouBusca =
-          receita.titulo
-            .toLowerCase()
-            .includes(busca) ||
-          receita.descricao
-            .toLowerCase()
-            .includes(busca) ||
-          receita.chef
-            .toLowerCase()
-            .includes(busca) ||
-          receita.tipoPrato
-            .toLowerCase()
-            .includes(busca) ||
-          receita.culinaria
-            .toLowerCase()
-            .includes(busca) ||
-          receita.ingredientes.some(
-            (ingrediente) =>
-              ingrediente.nome
-                .toLowerCase()
-                .includes(busca),
-          );
+  if (filtros.busca) {
+    const busca = filtros.busca.trim();
 
-        if (!encontrouBusca) {
-          return false;
-        }
-      }
+    where.OR = [
+      { titulo: { contains: busca } },
+      { descricao: { contains: busca } },
+      { chef: { contains: busca } },
+      { tipoPrato: { contains: busca } },
+      { culinaria: { contains: busca } },
+      {
+        ingredientes: {
+          some: {
+            ingrediente: {
+              nome: { contains: busca },
+            },
+          },
+        },
+      },
+    ];
+  }
 
-      if (filtros.ingrediente) {
-        const encontrouIngrediente =
-          receita.ingredientes.some(
-            (ingrediente) =>
-              ingrediente.nome
-                .toLowerCase()
-                .includes(
-                  filtros.ingrediente!.toLowerCase(),
-                ),
-          );
+  if (filtros.ingrediente) {
+    where.ingredientes = {
+      some: {
+        ingrediente: {
+          nome: {
+            contains: filtros.ingrediente.trim(),
+          },
+        },
+      },
+    };
+  }
 
-        if (!encontrouIngrediente) {
-          return false;
-        }
-      }
+  if (filtros.chef) {
+    where.chef = {
+      contains: filtros.chef.trim(),
+    };
+  }
 
-      if (filtros.chef) {
-        if (
-          !receita.chef
-            .toLowerCase()
-            .includes(
-              filtros.chef.toLowerCase(),
-            )
-        ) {
-          return false;
-        }
-      }
+  if (filtros.tipoPrato) {
+    where.tipoPrato = {
+      contains: filtros.tipoPrato.trim(),
+    };
+  }
 
-      if (filtros.tipoPrato) {
-        if (
-          !receita.tipoPrato
-            .toLowerCase()
-            .includes(
-              filtros.tipoPrato.toLowerCase(),
-            )
-        ) {
-          return false;
-        }
-      }
+  if (filtros.culinaria) {
+    where.culinaria = {
+      contains: filtros.culinaria.trim(),
+    };
+  }
 
-      if (filtros.culinaria) {
-        if (
-          !receita.culinaria
-            .toLowerCase()
-            .includes(
-              filtros.culinaria.toLowerCase(),
-            )
-        ) {
-          return false;
-        }
-      }
+  const registros = await prisma.receita.findMany({
+    where,
+    include: incluirRelacoes,
+  });
 
-      if (filtros.tempoMax !== undefined) {
-        const tempo = parseInt(
-          receita.tempo,
-          10,
-        );
+  let resultado = registros.map(converterReceita);
 
-        if (tempo > filtros.tempoMax) {
-          return false;
-        }
-      }
+  // O tempo está armazenado como texto (ex.: "35 min").
+  // Por isso, o limite é aplicado após converter os registros.
+  if (filtros.tempoMax !== undefined) {
+    resultado = resultado.filter(
+      (receita) =>
+        parseInt(receita.tempo, 10) <= filtros.tempoMax!,
+    );
+  }
 
-      return true;
-    },
-  );
-
-  return ordenarReceitas(
-    receitasFiltradas,
-    ordenacao,
-  );
+  return ordenarReceitas(resultado, ordenacao);
 };
 
-export const buscarReceitaPorId = (
+// Buscar uma receita pelo ID.
+export const buscarReceitaPorId = async (
   id: string,
-): Receita | undefined => {
-  return receitas.find(
-    (receita) => receita.id === id,
-  );
+): Promise<Receita | undefined> => {
+  const registro = await prisma.receita.findUnique({
+    where: { id },
+    include: incluirRelacoes,
+  });
+
+  if (!registro) {
+    return undefined;
+  }
+
+  return converterReceita(registro);
 };

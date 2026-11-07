@@ -1,42 +1,96 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { ItemListaCompras, CategoriaIngrediente } from '../types/shopping';
-import { getListaComprasSalva, salvarListaComprasStorage } from '../utils/shoppingStorage';
+
+import {
+  ItemListaCompras,
+  CategoriaIngrediente,
+  Estabelecimento,
+} from '../types/shopping';
+
+import {
+  carregarDadosListaCompras,
+  salvarDadosListaCompras,
+  ESTABELECIMENTO_PADRAO,
+} from '../utils/shoppingStorage';
+
 import { Receita } from '../model/receita';
 import { PlanoSemanal } from '../types/planner';
 import { usePantry } from './PantryContext';
 
+type DadosNovoItem = Omit<
+  ItemListaCompras,
+  'id' | 'comprado' | 'lojaId'
+>;
+
 interface ShoppingListContextData {
   itens: ItemListaCompras[];
-  adicionarItemManual: (item: Omit<ItemListaCompras, 'id' | 'comprado'>) => void;
-  editarItemManual: (id: string, itemAtualizado: Partial<Omit<ItemListaCompras, 'id'>>) => void;
+  estabelecimentos: Estabelecimento[];
+  estabelecimentoSelecionadoId: string;
+
+  selecionarEstabelecimento: (id: string) => void;
+  adicionarEstabelecimento: (nome: string) => Estabelecimento | null;
+  excluirEstabelecimento: (
+    id: string,
+    transferirItens: boolean
+  ) => boolean;
+
+  adicionarItemManual: (item: DadosNovoItem) => void;
+  editarItemManual: (
+    id: string,
+    itemAtualizado: Partial<Omit<ItemListaCompras, 'id' | 'lojaId'>>
+  ) => void;
+
   removerItem: (id: string) => void;
   alternarComprado: (id: string) => void;
   limparComprados: () => void;
-  removerSelecionadosApenas: () => void; // <-- Nova função para a lixeira
+  removerSelecionadosApenas: () => void;
   limparTudo: () => void;
   alternarSelecionarTodos: (comprado?: boolean) => void;
   removerSelecionados: () => void;
-  gerarDaReceita: (receita: Receita, porcoesAjustadas?: number) => void;
-  gerarDoPlanejamentoSemanal: (plano: PlanoSemanal) => void;
+
+  gerarDaReceita(
+    receita: Receita,
+    porcoesAjustadas?: number,
+    lojaId?: string
+  ): void;
+
+  gerarDoPlanejamentoSemanal(
+    plano: PlanoSemanal,
+    lojaId?: string
+  ): void;
 }
 
-const ShoppingListContext = createContext<ShoppingListContextData>({} as ShoppingListContextData);
+const ShoppingListContext = createContext<ShoppingListContextData>(
+  {} as ShoppingListContextData
+);
 
 const converterQuantidadeParaNumero = (valor: any): number | null => {
   if (valor === null || valor === undefined) return null;
+
   if (typeof valor === 'number') return valor;
+
   const limpo = String(valor).trim().replace(',', '.');
+
   if (limpo.includes('/')) {
     const [numerador, denominador] = limpo.split('/').map(Number);
-    if (denominador && !isNaN(numerador) && !isNaN(denominador)) {
+
+    if (
+      denominador &&
+      !isNaN(numerador) &&
+      !isNaN(denominador)
+    ) {
       return numerador / denominador;
     }
   }
+
   const num = parseFloat(limpo);
+
   return isNaN(num) ? null : num;
 };
 
-function categorizarIngredienteAutomaticamente(nome: string): CategoriaIngrediente {
+function categorizarIngredienteAutomaticamente(
+  nome: string
+): CategoriaIngrediente {
   const nomeLower = nome.toLowerCase();
 
   if (
@@ -112,13 +166,29 @@ function categorizarIngredienteAutomaticamente(nome: string): CategoriaIngredien
 
 function consolidarIngredientes(
   listaExistente: ItemListaCompras[],
-  novosIngredientes: { nome: string; quantidade: string; unidade: string; categoria?: CategoriaIngrediente }[]
+  novosIngredientes: {
+    nome: string;
+    quantidade: string;
+    unidade: string;
+    categoria?: CategoriaIngrediente;
+    imagemUri?: string;
+  }[],
+  lojaId: string
 ): ItemListaCompras[] {
-  const listaAtualizada = [...listaExistente];
+  // Separa os itens da loja selecionada dos itens das demais lojas.
+  const itensDeOutrasLojas = listaExistente.filter(
+    (item) => item.lojaId !== lojaId
+  );
+
+  const listaAtualizada = listaExistente.filter(
+    (item) => item.lojaId === lojaId
+  );
 
   novosIngredientes.forEach((novo) => {
     const nomeNormalizado = novo.nome.trim().toLowerCase();
-    const unidadeNormalizada = (novo.unidade || 'unidade').trim().toLowerCase();
+    const unidadeNormalizada = (novo.unidade || 'unidade')
+      .trim()
+      .toLowerCase();
 
     const indexExistente = listaAtualizada.findIndex(
       (item) =>
@@ -133,59 +203,196 @@ function consolidarIngredientes(
 
     if (indexExistente !== -1) {
       const itemExistente = listaAtualizada[indexExistente];
-      const qtdAtual = parseFloat(itemExistente.quantidade.replace(',', '.')) || 0;
-      const qtdNova = parseFloat(novo.quantidade.replace(',', '.')) || 0;
 
-      if (!isNaN(qtdAtual) && !isNaN(qtdNova) && qtdAtual > 0 && qtdNova > 0) {
+      const qtdAtual =
+        parseFloat(itemExistente.quantidade.replace(',', '.')) || 0;
+
+      const qtdNova =
+        parseFloat(novo.quantidade.replace(',', '.')) || 0;
+
+      if (
+        !isNaN(qtdAtual) &&
+        !isNaN(qtdNova) &&
+        qtdAtual > 0 &&
+        qtdNova > 0
+      ) {
         listaAtualizada[indexExistente] = {
           ...itemExistente,
-          quantidade: String(Math.round((qtdAtual + qtdNova) * 100) / 100),
-          categoria: itemExistente.categoria !== 'Outros' ? itemExistente.categoria : categoriaFinal,
+          quantidade: String(
+            Math.round((qtdAtual + qtdNova) * 100) / 100
+          ),
+          categoria:
+            itemExistente.categoria !== 'Outros'
+              ? itemExistente.categoria
+              : categoriaFinal,
           comprado: false,
         };
       } else {
         listaAtualizada[indexExistente] = {
           ...itemExistente,
           quantidade: `${itemExistente.quantidade} + ${novo.quantidade}`,
-          categoria: itemExistente.categoria !== 'Outros' ? itemExistente.categoria : categoriaFinal,
+          categoria:
+            itemExistente.categoria !== 'Outros'
+              ? itemExistente.categoria
+              : categoriaFinal,
           comprado: false,
         };
       }
     } else {
       listaAtualizada.push({
-        id: String(Date.now() + Math.random()),
+        id: `${Date.now()}-${Math.random()}`,
         nome: novo.nome.trim(),
         quantidade: novo.quantidade || '1',
         unidade: novo.unidade || 'unidade',
         categoria: categoriaFinal,
         comprado: false,
+        lojaId,
+        imagemUri: novo.imagemUri,
       });
     }
   });
 
-  return listaAtualizada;
+  // Reúne novamente todas as listas sem misturar os estabelecimentos.
+  return [...itensDeOutrasLojas, ...listaAtualizada];
 }
 
-export function ShoppingListProvider({ children }: { children: React.ReactNode }) {
-  const [itens, setItens] = useState<ItemListaCompras[]>([]);
+export function ShoppingListProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [todosItens, setTodosItens] = useState<ItemListaCompras[]>([]);
+
+  const [estabelecimentos, setEstabelecimentos] = useState<
+    Estabelecimento[]
+  >([ESTABELECIMENTO_PADRAO]);
+
+  const [estabelecimentoSelecionadoId, setEstabelecimentoSelecionadoId] =
+    useState<string>(ESTABELECIMENTO_PADRAO.id);
+
+  const [carregado, setCarregado] = useState(false);
+
   const { adicionarMultiplosItens } = usePantry();
 
+  // Carrega as listas e os estabelecimentos salvos.
   useEffect(() => {
     async function carregar() {
-      const dados = await getListaComprasSalva();
-      setItens(dados);
+      const dados = await carregarDadosListaCompras();
+
+      setTodosItens(dados.itens);
+      setEstabelecimentos(dados.estabelecimentos);
+      setEstabelecimentoSelecionadoId(
+        dados.estabelecimentoSelecionadoId
+      );
+
+      setCarregado(true);
     }
+
     carregar();
   }, []);
 
-  const atualizarEstado = (novosItens: ItemListaCompras[]) => {
-    setItens(novosItens);
-    setTimeout(() => {
-      salvarListaComprasStorage(novosItens);
-    }, 0);
+  // Salva os dados sempre que houver alterações.
+  useEffect(() => {
+    if (!carregado) return;
+
+    salvarDadosListaCompras({
+      itens: todosItens,
+      estabelecimentos,
+      estabelecimentoSelecionadoId,
+    });
+  }, [
+    todosItens,
+    estabelecimentos,
+    estabelecimentoSelecionadoId,
+    carregado,
+  ]);
+
+  // A tela recebe somente os itens da loja selecionada.
+  const itens = todosItens.filter(
+    (item) => item.lojaId === estabelecimentoSelecionadoId
+  );
+
+  // Alterna entre estabelecimentos sem misturar as listas.
+  const selecionarEstabelecimento = (id: string) => {
+    const existe = estabelecimentos.some((loja) => loja.id === id);
+
+    if (existe) {
+      setEstabelecimentoSelecionadoId(id);
+    }
   };
 
-  const adicionarItemManual = (novo: Omit<ItemListaCompras, 'id' | 'comprado'>) => {
+  const adicionarEstabelecimento = (
+    nome: string
+  ): Estabelecimento | null => {
+    const nomeFormatado = nome.trim();
+
+    if (!nomeFormatado) return null;
+
+    const nomeJaExiste = estabelecimentos.some(
+      (loja) =>
+        loja.nome.trim().toLowerCase() ===
+        nomeFormatado.toLowerCase()
+    );
+
+    if (nomeJaExiste) return null;
+
+    const novoEstabelecimento: Estabelecimento = {
+      id: `loja-${Date.now()}-${Math.random()}`,
+      nome: nomeFormatado,
+    };
+
+    setEstabelecimentos((anteriores) => [
+      ...anteriores,
+      novoEstabelecimento,
+    ]);
+
+    setEstabelecimentoSelecionadoId(novoEstabelecimento.id);
+
+    return novoEstabelecimento;
+  };
+
+  // Exclui um estabelecimento, podendo transferir seus itens
+  // para o estabelecimento padrão.
+  const excluirEstabelecimento = (
+    id: string,
+    transferirItens: boolean
+  ): boolean => {
+    // Impede a exclusão do estabelecimento padrão.
+    if (id === ESTABELECIMENTO_PADRAO.id) {
+      return false;
+    }
+
+    const estabelecimentoExiste = estabelecimentos.some(
+      (loja) => loja.id === id
+    );
+
+    if (!estabelecimentoExiste) {
+      return false;
+    }
+
+    setTodosItens((anteriores) =>
+      transferirItens
+        ? anteriores.map((item) =>
+          item.lojaId === id
+            ? { ...item, lojaId: ESTABELECIMENTO_PADRAO.id }
+            : item
+        )
+        : anteriores.filter((item) => item.lojaId !== id)
+    );
+
+    setEstabelecimentos((anteriores) =>
+      anteriores.filter((loja) => loja.id !== id)
+    );
+
+    // Se a lista excluída estava selecionada, volta para Meu mercado.
+    if (estabelecimentoSelecionadoId === id) {
+      setEstabelecimentoSelecionadoId(ESTABELECIMENTO_PADRAO.id);
+    }
+
+    return true;
+  };
+
+  const adicionarItemManual = (novo: DadosNovoItem) => {
     const categoriaFinal =
       novo.categoria && novo.categoria !== 'Outros'
         ? novo.categoria
@@ -194,77 +401,138 @@ export function ShoppingListProvider({ children }: { children: React.ReactNode }
     const itemFormatado: ItemListaCompras = {
       ...novo,
       categoria: categoriaFinal,
-      id: String(Date.now()),
+      id: `${Date.now()}-${Math.random()}`,
       comprado: false,
+      lojaId: estabelecimentoSelecionadoId,
     };
-    atualizarEstado([...itens, itemFormatado]);
+
+    setTodosItens((anteriores) => [...anteriores, itemFormatado]);
   };
 
-  const editarItemManual = (id: string, itemAtualizado: Partial<Omit<ItemListaCompras, 'id'>>) => {
-    const novos = itens.map((item) => (item.id === id ? { ...item, ...itemAtualizado } : item));
-    atualizarEstado(novos);
-  };
-
-  const removerItem = (id: string) => {
-    atualizarEstado(itens.filter((item) => item.id !== id));
-  };
-
-  const alternarComprado = (id: string) => {
-    atualizarEstado(
-      itens.map((item) => (item.id === id ? { ...item, comprado: !item.comprado } : item))
+  // Edita um item sem alterar o estabelecimento ao qual pertence.
+  const editarItemManual = (
+    id: string,
+    itemAtualizado: Partial<Omit<ItemListaCompras, 'id' | 'lojaId'>>
+  ) => {
+    setTodosItens((anteriores) =>
+      anteriores.map((item) =>
+        item.id === id &&
+          item.lojaId === estabelecimentoSelecionadoId
+          ? { ...item, ...itemAtualizado }
+          : item
+      )
     );
   };
 
-  // Envia os comprados para a despensa e os remove da lista
+  const removerItem = (id: string) => {
+    setTodosItens((anteriores) =>
+      anteriores.filter(
+        (item) =>
+          !(
+            item.id === id &&
+            item.lojaId === estabelecimentoSelecionadoId
+          )
+      )
+    );
+  };
+
+  const alternarComprado = (id: string) => {
+    setTodosItens((anteriores) =>
+      anteriores.map((item) =>
+        item.id === id &&
+          item.lojaId === estabelecimentoSelecionadoId
+          ? { ...item, comprado: !item.comprado }
+          : item
+      )
+    );
+  };
+
+  // Envia os itens comprados para a despensa e os remove desta lista.
   const limparComprados = () => {
     const comprados = itens.filter((item) => item.comprado);
-    if (comprados.length > 0) {
-      adicionarMultiplosItens(
-        comprados.map((item) => ({
-          nome: item.nome,
-          quantidade: item.quantidade,
-          unidade: item.unidade,
-          categoria: item.categoria,
-        }))
-      );
-    }
-    atualizarEstado(itens.filter((item) => !item.comprado));
+
+    if (comprados.length === 0) return;
+
+    adicionarMultiplosItens(
+      comprados.map((item) => ({
+        nome: item.nome,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        categoria: item.categoria,
+      }))
+    );
+
+    const idsComprados = new Set(comprados.map((item) => item.id));
+
+    setTodosItens((anteriores) =>
+      anteriores.filter((item) => !idsComprados.has(item.id))
+    );
   };
 
-  // Apenas remove os marcados da lista (lixeira), sem enviar para a despensa
+  // Remove somente os itens marcados da lista selecionada.
   const removerSelecionadosApenas = () => {
-    atualizarEstado(itens.filter((item) => !item.comprado));
+    const idsComprados = new Set(
+      itens.filter((item) => item.comprado).map((item) => item.id)
+    );
+
+    setTodosItens((anteriores) =>
+      anteriores.filter((item) => !idsComprados.has(item.id))
+    );
   };
 
+  // Limpa somente a lista do estabelecimento selecionado.
   const limparTudo = () => {
-    atualizarEstado([]);
+    setTodosItens((anteriores) =>
+      anteriores.filter(
+        (item) => item.lojaId !== estabelecimentoSelecionadoId
+      )
+    );
   };
 
+  // Marca ou desmarca todos os itens da lista selecionada.
   const alternarSelecionarTodos = (comprado?: boolean) => {
-    const todosJaComprados = itens.every((item) => item.comprado);
-    const novoValor = comprado !== undefined ? comprado : !todosJaComprados;
-    atualizarEstado(itens.map((item) => ({ ...item, comprado: novoValor })));
+    const todosJaComprados =
+      itens.length > 0 && itens.every((item) => item.comprado);
+
+    const novoValor =
+      comprado !== undefined ? comprado : !todosJaComprados;
+
+    setTodosItens((anteriores) =>
+      anteriores.map((item) =>
+        item.lojaId === estabelecimentoSelecionadoId
+          ? { ...item, comprado: novoValor }
+          : item
+      )
+    );
   };
 
   const removerSelecionados = () => {
     removerSelecionadosApenas();
   };
 
-  const gerarDaReceita = (receita: Receita, porcoesAjustadas?: number) => {
+  // Gera a lista a partir de uma receita.
+  const gerarDaReceita = (
+    receita: Receita,
+    porcoesAjustadas?: number
+  ) => {
     if (!receita.ingredientes) return;
 
     const porcaoBase = Number(receita.porcoes || 2);
     const porcaoAlvo = Number(porcoesAjustadas || porcaoBase);
+
     const fator = porcaoBase > 0 ? porcaoAlvo / porcaoBase : 1;
 
     const novos = receita.ingredientes.map((ing: any) => {
-      const qtdOriginal = ing.qtd !== undefined ? ing.qtd : (ing.quantidade || 1);
+      const qtdOriginal =
+        ing.qtd !== undefined ? ing.qtd : ing.quantidade || 1;
+
       const numBase = converterQuantidadeParaNumero(qtdOriginal);
 
       let qtdStr = String(qtdOriginal);
 
       if (numBase !== null) {
         const qtdCalculada = numBase * fator;
+
         qtdStr = String(Math.round(qtdCalculada * 100) / 100);
       }
 
@@ -274,28 +542,46 @@ export function ShoppingListProvider({ children }: { children: React.ReactNode }
         nome: nomeItem,
         quantidade: qtdStr,
         unidade: ing.unidade || 'unidade',
-        categoria: ing.categoria || categorizarIngredienteAutomaticamente(nomeItem),
+        categoria:
+          ing.categoria ||
+          categorizarIngredienteAutomaticamente(nomeItem),
       };
     });
 
-    const listaConsolidada = consolidarIngredientes(itens, novos);
-    atualizarEstado(listaConsolidada);
+    setTodosItens((anteriores) =>
+      consolidarIngredientes(
+        anteriores,
+        novos,
+        estabelecimentoSelecionadoId
+      )
+    );
   };
 
-  const gerarDoPlanejamentoSemanal = (planoSemanal: any) => {
+  // Gera a lista com os ingredientes do planejamento semanal.
+  const gerarDoPlanejamentoSemanal = (planoSemanal: PlanoSemanal) => {
     if (!planoSemanal) return;
 
-    let todosOsNovosIngredientes: any[] = [];
-    
-    // Descobre o índice do dia de hoje (0 = Segunda, ..., 6 = Domingo)
-    const hojeIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+    const todosOsNovosIngredientes: any[] = [];
 
-    const entradasPlano = Array.isArray(planoSemanal) 
-      ? planoSemanal.map((dia, index) => ({ dia, index }))
-      : Object.entries(planoSemanal).map(([key, dia]) => ({ dia, index: Number(key) }));
+    // Descobre o índice do dia de hoje (0 = Segunda, ..., 6 = Domingo).
+    const hojeIndex =
+      new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+
+    const entradasPlano: { dia: any; index: number }[] =
+      Array.isArray(planoSemanal)
+        ? (planoSemanal as any[]).map((dia, index) => ({
+          dia,
+          index,
+        }))
+        : Object.entries(
+          planoSemanal as unknown as Record<string, any>
+        ).map(([key, dia]) => ({
+          dia,
+          index: Number(key),
+        }));
 
     entradasPlano.forEach(({ dia, index }) => {
-      // Filtra apenas de HOJE em diante
+      // Considera somente os dias de hoje em diante.
       if (!dia || index < hojeIndex) return;
 
       const refeicoesDoDia = [
@@ -307,57 +593,80 @@ export function ShoppingListProvider({ children }: { children: React.ReactNode }
 
       refeicoesDoDia.forEach((refeicao: any) => {
         if (!refeicao || !refeicao.ingredientes) return;
+        console.log('DIAGNÓSTICO GERAÇÃO SEMANAL:', {
+          nome: refeicao.nome || refeicao.titulo,
+          porcoes: refeicao.porcoes,
+          porcoesOriginal: refeicao.porcoesOriginal,
+          porcoesBase: refeicao.porcoesBase,
+          receitaOriginal: refeicao.receitaOriginal,
+          ingredientes: refeicao.ingredientes,
+        });
 
-        // 1. Pega a porção configurada no slot do planejamento (ex: 1 porção)
         const porcaoAlvo = Number(refeicao.porcoes || 1);
 
-        // 2. Pega a porção original de fábrica da receita (ex: 3 porções)
-        // Se a refeição tiver a receitaOriginal associada, pega dela.
         const porcaoBase = Number(
-          refeicao.receitaOriginal?.porcoes || 
-          refeicao.porcoesOriginal || 
-          refeicao.porcoesBase || 
-          3 // padrão de fábrica
+          refeicao.receitaOriginal?.porcoes ||
+          refeicao.porcoesOriginal ||
+          refeicao.porcoesBase ||
+          3
         );
 
-        // 3. Fator exato: porcaoAlvo (1) / porcaoBase (3) = 0.333...
-        const fator = porcaoBase > 0 ? porcaoAlvo / porcaoBase : 1;
+        const fator =
+          porcaoBase > 0 ? porcaoAlvo / porcaoBase : 1;
 
         refeicao.ingredientes.forEach((ing: any) => {
-          // Se a lista de ingredientes dentro do slot já foi salva multiplicada no passado, 
-          // garantimos pegar o ingrediente base original
           const ingBase = ing.ingredienteOriginal || ing;
-          const qtdOriginal = ingBase.qtd !== undefined ? ingBase.qtd : (ingBase.quantidade || 1);
-          const numBase = converterQuantidadeParaNumero(qtdOriginal);
+
+          const qtdOriginal =
+            ingBase.qtd !== undefined
+              ? ingBase.qtd
+              : ingBase.quantidade || 1;
+
+          const numBase =
+            converterQuantidadeParaNumero(qtdOriginal);
 
           let qtdStr = String(qtdOriginal);
 
           if (numBase !== null) {
-            // Aplica a proporção (ex: 600 * (1/3) = 200g)
             const qtdCalculada = numBase * fator;
-            qtdStr = String(Math.round(qtdCalculada * 100) / 100);
+
+            qtdStr = String(
+              Math.round(qtdCalculada * 100) / 100
+            );
           }
 
-          const nomeItem = ingBase.nome || ingBase.item || 'Ingrediente';
+          const nomeItem =
+            ingBase.nome || ingBase.item || 'Ingrediente';
 
           todosOsNovosIngredientes.push({
             nome: nomeItem,
             quantidade: qtdStr,
             unidade: ingBase.unidade || 'unidade',
-            categoria: ingBase.categoria || categorizarIngredienteAutomaticamente(nomeItem),
+            categoria:
+              ingBase.categoria ||
+              categorizarIngredienteAutomaticamente(nomeItem),
           });
         });
       });
     });
 
-    const listaConsolidada = consolidarIngredientes(itens, todosOsNovosIngredientes);
-    atualizarEstado(listaConsolidada);
+    setTodosItens((anteriores) =>
+      consolidarIngredientes(
+        anteriores,
+        todosOsNovosIngredientes,
+        estabelecimentoSelecionadoId
+      )
+    );
   };
 
   return (
     <ShoppingListContext.Provider
       value={{
         itens,
+        estabelecimentos,
+        estabelecimentoSelecionadoId,
+        selecionarEstabelecimento,
+        adicionarEstabelecimento,
         adicionarItemManual,
         editarItemManual,
         removerItem,
@@ -369,6 +678,7 @@ export function ShoppingListProvider({ children }: { children: React.ReactNode }
         removerSelecionados,
         gerarDaReceita,
         gerarDoPlanejamentoSemanal,
+        excluirEstabelecimento,
       }}
     >
       {children}
