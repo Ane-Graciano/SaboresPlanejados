@@ -71,9 +71,9 @@ export const receitas: Receita[] = [
 
     passos: [
       'Pique a cebola e o alho.',
-      'Aqueça o azeite e doure a cebola.',
-      'Adicione o alho e refogue rapidamente.',
-      'Acrescente os tomates pelados e cozinhe em fogo baixo.',
+      'Aqueça o azeite e doure a cebola por 5 minutos.',
+      'Adicione o alho e refogue por 1 minuto.',
+      'Acrescente os tomates pelados e cozinhe em fogo baixo por 15 minutos.',
       'Tempere com sal e pimenta.',
       'Cozinhe o nhoque em água fervente até que ele suba à superfície.',
       'Retire o nhoque e misture ao molho.',

@@ -22,6 +22,7 @@ import { ActiveTimersBar } from '../components/ActiveTimersBar'; // <-- Barra fl
 import { usePlanner } from '../context/PlannerContext';
 import { useShoppingList } from '../context/ShoppingListContext';
 import { usePantry } from '../context/PantryContext';
+import { useTimer } from '../context/TimerContext';
 
 import {
   getFavoritos,
@@ -114,7 +115,7 @@ export default function DetalhesScreen({
       }
 
       setReceita(resultado);
-      
+
       const porcaoSalva = route?.params?.porcoesInicial || resultado.porcoes || 2;
       setPorcoes(porcaoSalva);
     } catch (err) {
@@ -170,6 +171,61 @@ export default function DetalhesScreen({
     });
   };
 
+
+  const detectarDuracao = (texto: string): number | null => {
+    let textoNormalizado = texto.toLowerCase();
+
+    // Reconhece formatos como "1h30" e "2h15".
+    textoNormalizado = textoNormalizado.replace(
+      /(\d+)\s*h\s*(\d{1,2})(?!\d)/gi,
+      '$1 horas $2 minutos',
+    );
+
+    // Reconhece "meia hora".
+    textoNormalizado = textoNormalizado.replace(
+      /meia[- ]hora/gi,
+      '30 minutos',
+    );
+
+    const regex =
+      /(\d+(?:[.,]\d+)?)\s*(horas?|hrs?|hr|h|minutos?|mins?|min|segundos?|segs?|seg|s)(?![a-z])/gi;
+
+    let totalSegundos = 0;
+    let encontrouDuracao = false;
+
+    for (const resultado of textoNormalizado.matchAll(regex)) {
+      const valor = Number(resultado[1].replace(',', '.'));
+      const unidade = resultado[2].toLowerCase();
+
+      if (unidade.startsWith('h')) {
+        totalSegundos += valor * 3600;
+      } else if (unidade.startsWith('min')) {
+        totalSegundos += valor * 60;
+      } else {
+        totalSegundos += valor;
+      }
+
+      encontrouDuracao = true;
+    }
+
+    return encontrouDuracao && totalSegundos > 0
+      ? Math.round(totalSegundos)
+      : null;
+  };
+
+
+  const iniciarTimerDaEtapa = (
+    index: number,
+    duracao: number,
+  ): string | null => {
+    return criarTimer(
+      `Etapa ${index + 1}`,
+      duracao,
+      receita?.id,
+      index
+    );
+  };
+
   const iniciarModoPreparo = (): void => {
     if (!receita || !navigation?.navigate) return;
     navigation.navigate('ReadingMode', { receita });
@@ -211,6 +267,8 @@ export default function DetalhesScreen({
       navigation.navigate('MainTabs', { screen: 'Shopping' });
     }
   };
+
+  const { criarTimer } = useTimer();
 
   if (isLoading) {
     return (
@@ -355,8 +413,8 @@ export default function DetalhesScreen({
               <View style={styles.stepsHeaderRow}>
                 <Text style={styles.sectionTitle}>Modo de preparo</Text>
                 {/* Botão rápido para abrir a tela de Timers */}
-                <TouchableOpacity 
-                  style={styles.btnAbrirTimersRapido} 
+                <TouchableOpacity
+                  style={styles.btnAbrirTimersRapido}
                   onPress={() => navigation?.navigate?.('TimerScreen')}
                 >
                   <Ionicons name="timer-outline" size={16} color="#2E4A2E" />
@@ -369,9 +427,14 @@ export default function DetalhesScreen({
                   <ItemPasso
                     key={index}
                     index={index}
+                    receitaId={receita.id}
                     textoPasso={passo}
                     isConcluido={passosConcluidos.has(index)}
                     onToggle={() => togglePasso(index)}
+                    duracaoDetectada={detectarDuracao(passo)}
+                    onIniciarTimer={(duracao) =>
+                      iniciarTimerDaEtapa(index, duracao)
+                    }
                   />
                 ))}
               </View>

@@ -12,7 +12,12 @@ import { TimerEntry, TimerStatus } from '../types/timer';
 
 interface TimerContextData {
   timers: TimerEntry[];
-  criarTimer: (nome: string, totalSegundos: number) => void;
+  criarTimer: (
+    nome: string,
+    totalSegundos: number,
+    receitaId?: string,
+    etapaIndex?: number
+  ) => string | null;
   alternarPausa: (id: string) => void;
   cancelarTimer: (id: string) => void;
   dispensarTimer: (id: string) => void;
@@ -32,12 +37,10 @@ export function TimerProvider({
 }) {
   const [timers, setTimers] = useState<TimerEntry[]>([]);
 
-  // Áudio do alarme
   const player = useAudioPlayer(
-    'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg'
+    'https://sfxmint.com/dl/ui-chime-70.mp3'
   );
-
-  // Verifica se existe algum timer concluído e ainda não dispensado
+  
   const existeAlarmeAtivo = timers.some(
     (timer) =>
       timer.status === 'done' && !timer.dismissed
@@ -98,21 +101,32 @@ export function TimerProvider({
     return () => clearInterval(interval);
   }, []);
 
-  // Criar timer
+  // Criar timer, opcionalmente vinculado a uma etapa da receita
   const criarTimer = useCallback(
-    (nome: string, totalSegundos: number) => {
-      if (totalSegundos <= 0) return;
+    (
+      nome: string,
+      totalSegundos: number,
+      receitaId?: string,
+      etapaIndex?: number
+    ): string | null => {
+      if (totalSegundos <= 0) return null;
+
+      const id = String(Date.now() + Math.random());
 
       const novo: TimerEntry = {
-        id: String(Date.now() + Math.random()),
+        id,
         name: nome.trim() || 'Timer',
         totalSeconds: totalSegundos,
         remaining: totalSegundos,
         status: 'running',
         dismissed: false,
+        receitaId,
+        etapaIndex,
       };
 
       setTimers((prev) => [...prev, novo]);
+
+      return id;
     },
     []
   );
@@ -160,11 +174,11 @@ export function TimerProvider({
       prev.map((timer) =>
         timer.id === id
           ? {
-              ...timer,
-              remaining: timer.totalSeconds,
-              status: 'running',
-              dismissed: false,
-            }
+            ...timer,
+            remaining: timer.totalSeconds,
+            status: 'running',
+            dismissed: false,
+          }
           : timer
       )
     );

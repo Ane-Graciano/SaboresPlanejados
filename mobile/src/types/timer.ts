@@ -7,4 +7,6 @@ export interface TimerEntry {
   remaining: number;
   status: TimerStatus;
   dismissed: boolean;
+  receitaId?: string;
+  etapaIndex?: number;
 }

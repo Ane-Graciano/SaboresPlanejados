@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Receita } from '../model/receita';
+import { useTimer } from '../context/TimerContext';
 
 type ReadingModeRouteParams = {
   receita?: Receita;
@@ -34,6 +34,55 @@ const FONT_SIZES = [
   { label: 'A', size: 22, lineHeight: 38 },
 ];
 
+// Identifica durações escritas de diferentes maneiras.
+function identificarTempo(texto: string): number | null {
+  const textoNormalizado = texto.toLowerCase();
+
+  // Exemplos: 1h30min, 1 hora e 30 minutos, 2h
+  const horas = textoNormalizado.match(
+    /(\d+)\s*(?:h|hora(?:s)?)(?:\s*(?:e)?\s*(\d+)\s*(?:m|min(?:s)?|minuto(?:s)?))?/
+  );
+
+  if (horas) {
+    const quantidadeHoras = Number(horas[1]);
+    const quantidadeMinutos = Number(horas[2] || 0);
+
+    return quantidadeHoras * 3600 + quantidadeMinutos * 60;
+  }
+
+  // Exemplos: 5 min, 5min, 5 minutos
+  const minutos = textoNormalizado.match(
+    /(\d+)\s*(?:m|min(?:s)?|minuto(?:s)?)(?![a-z])/
+  );
+
+  if (minutos) {
+    return Number(minutos[1]) * 60;
+  }
+
+  // Exemplos: 30 s, 30 seg, 30 segundos
+  const segundos = textoNormalizado.match(
+    /(\d+)\s*(?:s|seg(?:s)?|segundo(?:s)?)(?![a-z])/
+  );
+
+  if (segundos) {
+    return Number(segundos[1]);
+  }
+
+  return null;
+}
+
+function formatarTempo(segundos: number) {
+  const minutos = Math.floor(Math.max(0, segundos) / 60)
+    .toString()
+    .padStart(2, '0');
+
+  const segundosRestantes = (Math.max(0, segundos) % 60)
+    .toString()
+    .padStart(2, '0');
+
+  return `${minutos}:${segundosRestantes}`;
+}
+
 export default function ReadingModeScreen({
   navigation,
   route,
@@ -47,6 +96,21 @@ export default function ReadingModeScreen({
   const [keepScreen, setKeepScreen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [timerFeedback, setTimerFeedback] = useState(false);
+
+  const {
+    timers,
+    criarTimer,
+    alternarPausa,
+    cancelarTimer,
+    dispensarTimer,
+    reiniciarTimer,
+  } = useTimer();
+
+  const timersVisiveis = useMemo(
+    () => timers.filter((timer) => !timer.dismissed),
+    [timers]
+  );
 
   const steps = useMemo(() => {
     return receita?.passos || [];
@@ -54,9 +118,16 @@ export default function ReadingModeScreen({
 
   const total = steps.length;
   const step = steps[currentStep] || '';
+
   const isFirst = currentStep === 0;
   const isLast = total > 0 && currentStep === total - 1;
   const isDone = doneSteps.has(currentStep);
+
+  // Detecta o tempo mencionado na etapa atual.
+  const tempoDetectado = useMemo(
+    () => identificarTempo(step),
+    [step]
+  );
 
   const markDone = () => {
     setDoneSteps((prev) => {
@@ -72,17 +143,30 @@ export default function ReadingModeScreen({
     });
   };
 
+  const iniciarTimerDaEtapa = () => {
+    if (!tempoDetectado) return;
+
+    criarTimer(
+      `Etapa ${currentStep + 1}`,
+      tempoDetectado
+    );
+
+    setTimerFeedback(true);
+  };
+
   const goNext = () => {
     if (isLast) {
       setFinished(true);
       return;
     }
 
+    setTimerFeedback(false);
     setCurrentStep((value) => value + 1);
   };
 
   const goPrev = () => {
     if (!isFirst) {
+      setTimerFeedback(false);
       setCurrentStep((value) => value - 1);
     }
   };
@@ -91,6 +175,7 @@ export default function ReadingModeScreen({
     setFinished(false);
     setCurrentStep(0);
     setDoneSteps(new Set());
+    setTimerFeedback(false);
   };
 
   if (!receita || total === 0) {
@@ -315,7 +400,10 @@ export default function ReadingModeScreen({
                         : borderColor,
                 },
               ]}
-              onPress={() => setCurrentStep(index)}
+              onPress={() => {
+                setTimerFeedback(false);
+                setCurrentStep(index);
+              }}
             >
               {doneSteps.has(index) &&
                 index !== currentStep && (
@@ -413,6 +501,61 @@ export default function ReadingModeScreen({
             {step}
           </Text>
 
+          {/* Atalho para iniciar timer detectado */}
+          {tempoDetectado !== null && (
+            <View style={styles.detectedTimerContainer}>
+              <View style={styles.detectedTimerInfo}>
+                <View style={styles.detectedTimerIcon}>
+                  <Ionicons
+                    name="hourglass-outline"
+                    size={20}
+                    color="#64866A"
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.detectedTimerTitle}>
+                    Tempo identificado
+                  </Text>
+
+                  <Text style={styles.detectedTimerSubtitle}>
+                    {formatarTempo(tempoDetectado)} de preparo
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.startTimerButton}
+                onPress={iniciarTimerDaEtapa}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="play"
+                  size={16}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.startTimerButtonText}>
+                  Iniciar timer
+                </Text>
+              </TouchableOpacity>
+
+              {timerFeedback && (
+                <View style={styles.timerSuccessMessage}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={17}
+                    color="#54815A"
+                  />
+
+                  <Text style={styles.timerSuccessText}>
+                    Timer iniciado! Você pode continuar acompanhando a receita.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           <TouchableOpacity
             style={[
               styles.doneButton,
@@ -468,7 +611,165 @@ export default function ReadingModeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Atalho para os timers */}
+        {/* Timers em andamento */}
+        {timersVisiveis.length > 0 && (
+          <View
+            style={[
+              styles.activeTimersContainer,
+              {
+                backgroundColor: cardColor,
+                borderColor,
+              },
+            ]}
+          >
+            <View style={styles.activeTimersHeader}>
+              <View style={styles.activeTimersHeading}>
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color="#64866A"
+                />
+
+                <Text
+                  style={[
+                    styles.activeTimersTitle,
+                    { color: textColor },
+                  ]}
+                >
+                  Seus timers
+                </Text>
+              </View>
+
+              <View style={styles.timerCountBadge}>
+                <Text style={styles.timerCountText}>
+                  {timersVisiveis.length}
+                </Text>
+              </View>
+            </View>
+
+            {timersVisiveis.map((timer) => (
+              <View
+                key={timer.id}
+                style={styles.timerItem}
+              >
+                <View style={styles.timerItemInfo}>
+                  <Text
+                    style={[
+                      styles.timerItemName,
+                      { color: textColor },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {timer.name}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.timerItemStatus,
+                      {
+                        color:
+                          timer.status === 'done'
+                            ? '#C17A4D'
+                            : mutedColor,
+                      },
+                    ]}
+                  >
+                    {timer.status === 'done'
+                      ? 'Tempo concluído'
+                      : timer.status === 'paused'
+                        ? 'Pausado'
+                        : 'Em andamento'}
+                  </Text>
+                </View>
+
+                <Text
+                  style={[
+                    styles.timerItemTime,
+                    {
+                      color:
+                        timer.status === 'done'
+                          ? '#C17A4D'
+                          : '#64866A',
+                    },
+                  ]}
+                >
+                  {formatarTempo(timer.remaining)}
+                </Text>
+
+                <View style={styles.timerActions}>
+                  {timer.status === 'done' ? (
+                    <TouchableOpacity
+                      style={styles.timerActionButton}
+                      onPress={() => dispensarTimer(timer.id)}
+                    >
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={21}
+                        color="#64866A"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.timerActionButton}
+                      onPress={() => alternarPausa(timer.id)}
+                    >
+                      <Ionicons
+                        name={
+                          timer.status === 'running'
+                            ? 'pause-circle-outline'
+                            : 'play-circle-outline'
+                        }
+                        size={21}
+                        color="#64866A"
+                      />
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.timerActionButton}
+                    onPress={() => cancelarTimer(timer.id)}
+                  >
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={21}
+                      color="#A58F7D"
+                    />
+                  </TouchableOpacity>
+
+                  {timer.status === 'done' && (
+                    <TouchableOpacity
+                      style={styles.timerActionButton}
+                      onPress={() => reiniciarTimer(timer.id)}
+                    >
+                      <Ionicons
+                        name="refresh-circle-outline"
+                        size={21}
+                        color="#64866A"
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.openAllTimersButton}
+              onPress={() => navigation.navigate?.('TimerScreen')}
+            >
+              <Text style={styles.openAllTimersText}>
+                Gerenciar todos os timers
+              </Text>
+
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color="#64866A"
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Atalho para criar timer manualmente */}
         <TouchableOpacity
           style={[
             styles.timerShortcut,
@@ -480,20 +781,11 @@ export default function ReadingModeScreen({
           onPress={() => navigation.navigate?.('TimerScreen')}
           activeOpacity={0.8}
         >
-          <View
-            style={[
-              styles.timerShortcutIcon,
-              {
-                backgroundColor: highContrast
-                  ? '#2A422A'
-                  : '#EBF2EB',
-              },
-            ]}
-          >
+          <View style={styles.timerShortcutIcon}>
             <Ionicons
               name="timer-outline"
               size={19}
-              color={highContrast ? '#A8C8A8' : '#2E4A2E'}
+              color="#64866A"
             />
           </View>
 
@@ -504,7 +796,7 @@ export default function ReadingModeScreen({
                 { color: textColor },
               ]}
             >
-              Timer
+              Criar timer personalizado
             </Text>
 
             <Text
@@ -513,7 +805,7 @@ export default function ReadingModeScreen({
                 { color: mutedColor },
               ]}
             >
-              Abrir timers da receita
+              Defina outro tempo de preparo
             </Text>
           </View>
 
@@ -667,8 +959,7 @@ export default function ReadingModeScreen({
                           fontIdx === index
                             ? '#FAF6F0'
                             : textColor,
-                        fontSize:
-                          font.size * 0.72 + 6,
+                        fontSize: font.size * 0.72 + 6,
                       },
                     ]}
                   >
@@ -739,9 +1030,7 @@ export default function ReadingModeScreen({
                 <View
                   style={[
                     styles.toggleCircle,
-                    {
-                      left: highContrast ? 21 : 3,
-                    },
+                    { left: highContrast ? 21 : 3 },
                   ]}
                 />
               </TouchableOpacity>
@@ -798,9 +1087,7 @@ export default function ReadingModeScreen({
                 <View
                   style={[
                     styles.toggleCircle,
-                    {
-                      left: keepScreen ? 21 : 3,
-                    },
+                    { left: keepScreen ? 21 : 3 },
                   ]}
                 />
               </TouchableOpacity>
@@ -1087,7 +1374,7 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
 
   stepCard: {
@@ -1165,7 +1452,171 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Atalho dos timers
+  // Tempo identificado na etapa
+  detectedTimerContainer: {
+    backgroundColor: '#F3F7F0',
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 22,
+    borderWidth: 1,
+    borderColor: '#E0EBDD',
+  },
+
+  detectedTimerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+
+  detectedTimerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#E4EEE0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  detectedTimerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#405C43',
+  },
+
+  detectedTimerSubtitle: {
+    fontSize: 12,
+    color: '#758875',
+    marginTop: 3,
+  },
+
+  startTimerButton: {
+    backgroundColor: '#64866A',
+    borderRadius: 12,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+
+  startTimerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  timerSuccessMessage: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    marginTop: 11,
+  },
+
+  timerSuccessText: {
+    flex: 1,
+    color: '#54815A',
+    fontSize: 11.5,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+
+  // Timers ativos
+  activeTimersContainer: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginTop: 14,
+  },
+
+  activeTimersHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+
+  activeTimersHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  activeTimersTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  timerCountBadge: {
+    backgroundColor: '#E8F0E5',
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+
+  timerCountText: {
+    color: '#64866A',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  timerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEAE3',
+    gap: 8,
+  },
+
+  timerItemInfo: {
+    flex: 1,
+  },
+
+  timerItemName: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  timerItemStatus: {
+    fontSize: 11,
+    marginTop: 3,
+  },
+
+  timerItemTime: {
+    fontSize: 16,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+
+  timerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+
+  timerActionButton: {
+    padding: 3,
+  },
+
+  openAllTimersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#EEEAE3',
+    paddingTop: 12,
+    marginTop: 4,
+    gap: 5,
+  },
+
+  openAllTimersText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64866A',
+  },
+
+  // Atalho para criar timer manualmente
   timerShortcut: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1180,6 +1631,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 11,
+    backgroundColor: '#EBF2EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
