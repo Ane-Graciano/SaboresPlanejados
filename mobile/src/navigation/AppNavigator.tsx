@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -8,11 +9,12 @@ import TabNavigator from './TabNavigator';
 import DetalhesScreen from '../screens/DetalhesScreen';
 import FavoritosScreen from '../screens/FavoritosScreen';
 import ReadingModeScreen from '../screens/ReadingModeScreen';
-import PantryScreen from '../screens/PantryScreen'; // <-- Importando a tela da despensa
+import PantryScreen from '../screens/PantryScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import SearchScreen from '../screens/SearchScreen';
 import PlannerScreen from '../screens/PlannerScreen';
+import TimerScreen from '../screens/TimerScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -80,13 +82,14 @@ export default function AppNavigator({
               )}
             </Stack.Screen>
 
-            {/* Rota da Despensa acionada via Perfil */}
             <Stack.Screen name="Pantry">
               {(props) => (
                 <PantryScreen
                   {...props}
                   theme={theme}
-                  onNavigate={(screenName, params) => props.navigation.navigate(screenName, params)}
+                  onNavigate={(screenName, params) =>
+                    props.navigation.navigate(screenName, params)
+                  }
                 />
               )}
             </Stack.Screen>
@@ -99,6 +102,12 @@ export default function AppNavigator({
             <Stack.Screen
               name="ReadingMode"
               component={ReadingModeScreen}
+            />
+
+            {/* Tela para criar e acompanhar os timers */}
+            <Stack.Screen
+              name="TimerScreen"
+              component={TimerScreen}
             />
 
             <Stack.Screen name="Favoritos">

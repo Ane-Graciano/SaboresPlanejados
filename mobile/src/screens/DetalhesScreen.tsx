@@ -17,9 +17,11 @@ import SeletorPorcoes from '../components/SeletorPorcoes';
 import CardIngredientes from '../components/CardIngredientes';
 import ItemPasso from '../components/ItemPasso';
 import Divisor from '../components/Divisor';
+import { ActiveTimersBar } from '../components/ActiveTimersBar'; // <-- Barra flutuante da US17
+
 import { usePlanner } from '../context/PlannerContext';
 import { useShoppingList } from '../context/ShoppingListContext';
-import { usePantry } from '../context/PantryContext'; // <-- Importando o contexto da despensa
+import { usePantry } from '../context/PantryContext';
 
 import {
   getFavoritos,
@@ -52,7 +54,7 @@ export default function DetalhesScreen({
 }: DetalhesScreenProps) {
   const { adicionarRefeicaoNoPlano } = usePlanner();
   const { gerarDaReceita } = useShoppingList();
-  const { possuiIngrediente } = usePantry(); // <-- Função para checar se o ingrediente está na despensa
+  const { possuiIngrediente } = usePantry();
 
   const receitaRecebida = route?.params?.receita;
   const modoSelecao = route?.params?.modoSelecao || false;
@@ -247,7 +249,7 @@ export default function DetalhesScreen({
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 160 }}
+        contentContainerStyle={{ paddingBottom: 180 }}
         showsVerticalScrollIndicator={false}
       >
         <HeroHeader
@@ -302,14 +304,12 @@ export default function DetalhesScreen({
                 />
               </View>
 
-              {/* Card de ingredientes com verificação visual de estoque */}
               <CardIngredientes
                 ingredientes={receita.ingredientes}
                 porcoesBase={porcoesOriginais}
                 porcoesAtuais={porcoes}
               />
 
-              {/* Lista detalhada adicional com badges Em estoque / Faltando */}
               <View style={styles.estoqueListContainer}>
                 {receita.ingredientes.map((ing, index) => {
                   const nomeIng = ing.nome || '';
@@ -352,7 +352,18 @@ export default function DetalhesScreen({
         {receita.passos && receita.passos.length > 0 && (
           <>
             <View style={styles.contentSection}>
-              <Text style={styles.sectionTitle}>Modo de preparo</Text>
+              <View style={styles.stepsHeaderRow}>
+                <Text style={styles.sectionTitle}>Modo de preparo</Text>
+                {/* Botão rápido para abrir a tela de Timers */}
+                <TouchableOpacity 
+                  style={styles.btnAbrirTimersRapido} 
+                  onPress={() => navigation?.navigate?.('TimerScreen')}
+                >
+                  <Ionicons name="timer-outline" size={16} color="#2E4A2E" />
+                  <Text style={styles.txtAbrirTimersRapido}>Timers</Text>
+                </TouchableOpacity>
+              </View>
+
               <View style={styles.stepsList}>
                 {receita.passos.map((passo: string, index: number) => (
                   <ItemPasso
@@ -418,6 +429,9 @@ export default function DetalhesScreen({
         )}
       </ScrollView>
 
+      {/* Barra flutuante de timers ativos da US17 */}
+      <ActiveTimersBar onPress={() => navigation?.navigate?.('TimerScreen')} />
+
       {/* Botões de Ação Inferiores */}
       <View style={styles.fixedBottomContainer}>
         <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8}>
@@ -430,7 +444,7 @@ export default function DetalhesScreen({
           <Text style={styles.actionShoppingButtonText}>Gerar lista de compras</Text>
         </TouchableOpacity>
 
-        {route?.params?.modoSelecao && (
+        {modoSelecao && (
           <TouchableOpacity style={styles.actionPlannerButton} activeOpacity={0.85} onPress={handleAdicionarAoPlanejamento}>
             <Ionicons name="calendar-outline" size={16} color="#FAF6F0" />
             <Text style={styles.actionPlannerButtonText}>Adicionar ao planejamento</Text>
@@ -466,6 +480,9 @@ const styles = StyleSheet.create({
   description: { fontSize: 14.5, color: '#5C4E43', lineHeight: 22, marginTop: 16 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#2C2016' },
+  stepsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  btnAbrirTimersRapido: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EBF2EB', borderWidth: 1, borderColor: '#D2E3D2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  txtAbrirTimersRapido: { fontSize: 12, fontWeight: 'bold', color: '#2E4A2E' },
   servingsNote: { fontSize: 12, color: '#9B8574', marginTop: 8, textAlign: 'center' },
   restoreButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', gap: 6, marginTop: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, borderWidth: 1.5, borderColor: '#D2E3D2', backgroundColor: '#EBF2EB' },
   restoreButtonText: { fontSize: 12.5, fontWeight: '700', color: '#2E4A2E' },

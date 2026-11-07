@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
@@ -17,6 +18,7 @@ type ReadingModeRouteParams = {
 
 type ReadingModeNavigation = {
   goBack?: () => void;
+  navigate?: (screenName: string) => void;
 };
 
 type ReadingModeScreenProps = {
@@ -117,7 +119,9 @@ export default function ReadingModeScreen({
             style={styles.backButton}
             onPress={() => navigation.goBack?.()}
           >
-            <Text style={styles.backButtonText}>Voltar para receita</Text>
+            <Text style={styles.backButtonText}>
+              Voltar para receita
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -138,7 +142,9 @@ export default function ReadingModeScreen({
             />
           </View>
 
-          <Text style={styles.finishedLabel}>Bom apetite!</Text>
+          <Text style={styles.finishedLabel}>
+            Bom apetite!
+          </Text>
 
           <Text style={styles.finishedTitle}>
             Receita concluída!
@@ -194,6 +200,7 @@ export default function ReadingModeScreen({
         barStyle={highContrast ? 'light-content' : 'dark-content'}
       />
 
+      {/* Cabeçalho */}
       <View style={styles.topBar}>
         <TouchableOpacity
           style={[
@@ -251,6 +258,7 @@ export default function ReadingModeScreen({
         </TouchableOpacity>
       </View>
 
+      {/* Progresso das etapas */}
       <View style={styles.progressSection}>
         <View style={styles.progressHeader}>
           <Text
@@ -322,6 +330,7 @@ export default function ReadingModeScreen({
         </View>
       </View>
 
+      {/* Conteúdo da etapa */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -458,8 +467,65 @@ export default function ReadingModeScreen({
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Atalho para os timers */}
+        <TouchableOpacity
+          style={[
+            styles.timerShortcut,
+            {
+              backgroundColor: cardColor,
+              borderColor,
+            },
+          ]}
+          onPress={() => navigation.navigate?.('TimerScreen')}
+          activeOpacity={0.8}
+        >
+          <View
+            style={[
+              styles.timerShortcutIcon,
+              {
+                backgroundColor: highContrast
+                  ? '#2A422A'
+                  : '#EBF2EB',
+              },
+            ]}
+          >
+            <Ionicons
+              name="timer-outline"
+              size={19}
+              color={highContrast ? '#A8C8A8' : '#2E4A2E'}
+            />
+          </View>
+
+          <View style={styles.timerShortcutContent}>
+            <Text
+              style={[
+                styles.timerShortcutTitle,
+                { color: textColor },
+              ]}
+            >
+              Timer
+            </Text>
+
+            <Text
+              style={[
+                styles.timerShortcutSubtitle,
+                { color: mutedColor },
+              ]}
+            >
+              Abrir timers da receita
+            </Text>
+          </View>
+
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={mutedColor}
+          />
+        </TouchableOpacity>
       </ScrollView>
 
+      {/* Navegação entre etapas */}
       <View
         style={[
           styles.navigationContainer,
@@ -523,6 +589,7 @@ export default function ReadingModeScreen({
         </TouchableOpacity>
       </View>
 
+      {/* Configurações de leitura */}
       {showSettings && (
         <View style={styles.settingsOverlay}>
           <TouchableOpacity
@@ -621,6 +688,7 @@ export default function ReadingModeScreen({
               {FONT_SIZES[fontIdx].size}px
             </Text>
 
+            {/* Alto contraste */}
             <View
               style={[
                 styles.settingRow,
@@ -679,6 +747,7 @@ export default function ReadingModeScreen({
               </TouchableOpacity>
             </View>
 
+            {/* Manter tela ligada */}
             <View
               style={[
                 styles.settingRow,
@@ -737,6 +806,7 @@ export default function ReadingModeScreen({
               </TouchableOpacity>
             </View>
 
+            {/* Modo mãos livres */}
             <View style={styles.settingRow}>
               <View style={styles.settingIcon}>
                 <Ionicons
@@ -799,12 +869,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
+
   emptyIcon: {
     width: 80,
     height: 80,
@@ -814,12 +886,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
+
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#2C2016',
     textAlign: 'center',
   },
+
   emptyText: {
     fontSize: 14,
     color: '#8A7B70',
@@ -827,6 +901,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 10,
   },
+
   backButton: {
     backgroundColor: '#2E4A2E',
     borderRadius: 18,
@@ -834,17 +909,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 22,
   },
+
   backButtonText: {
     color: '#FAF6F0',
     fontSize: 15,
     fontWeight: '700',
   },
+
   finishedContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 34,
   },
+
   trophyContainer: {
     width: 100,
     height: 100,
@@ -854,6 +932,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 22,
   },
+
   finishedLabel: {
     fontSize: 12,
     fontWeight: '800',
@@ -862,12 +941,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 8,
   },
+
   finishedTitle: {
     fontSize: 27,
     fontWeight: '700',
     color: '#2C2016',
     textAlign: 'center',
   },
+
   finishedText: {
     fontSize: 14.5,
     color: '#8A7B70',
@@ -875,6 +956,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
+
   finishedBadge: {
     backgroundColor: '#EBF2EB',
     borderWidth: 1.5,
@@ -884,11 +966,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginTop: 18,
   },
+
   finishedBadgeText: {
     color: '#2E4A2E',
     fontSize: 13,
     fontWeight: '700',
   },
+
   primaryFinishedButton: {
     width: '100%',
     backgroundColor: '#2E4A2E',
@@ -897,11 +981,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 28,
   },
+
   primaryFinishedButtonText: {
     color: '#FAF6F0',
     fontSize: 16,
     fontWeight: '800',
   },
+
   secondaryFinishedButton: {
     width: '100%',
     borderWidth: 1.5,
@@ -911,11 +997,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+
   secondaryFinishedButtonText: {
     color: '#5C4E43',
     fontSize: 15,
     fontWeight: '600',
   },
+
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -923,6 +1011,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 10,
   },
+
   iconButton: {
     width: 40,
     height: 40,
@@ -931,49 +1020,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   titleContainer: {
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 10,
   },
+
   modeLabel: {
     fontSize: 10.5,
     fontWeight: '700',
     letterSpacing: 1,
   },
+
   recipeTitle: {
     fontSize: 15,
     fontWeight: '600',
     marginTop: 2,
   },
+
   progressSection: {
     paddingHorizontal: 22,
     paddingBottom: 14,
   },
+
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
+
   progressText: {
     fontSize: 12.5,
     fontWeight: '700',
   },
+
   progressTrack: {
     height: 5,
     borderRadius: 5,
     overflow: 'hidden',
   },
+
   progressFill: {
     height: '100%',
     backgroundColor: '#2E4A2E',
     borderRadius: 5,
   },
+
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 8,
   },
+
   dot: {
     width: 20,
     height: 20,
@@ -981,13 +1080,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   scrollView: {
     flex: 1,
   },
+
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
+
   stepCard: {
     borderRadius: 24,
     borderWidth: 1.5,
@@ -995,11 +1097,13 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     minHeight: 280,
   },
+
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
   },
+
   stepNumber: {
     width: 48,
     height: 48,
@@ -1008,27 +1112,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 14,
   },
+
   stepNumberText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FAF6F0',
   },
+
   stepTitleContainer: {
     flex: 1,
   },
+
   stepLabel: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
     marginBottom: 3,
   },
+
   stepTitle: {
     fontSize: 17,
     fontWeight: '700',
   },
+
   instructionText: {
     fontWeight: '400',
   },
+
   doneButton: {
     marginTop: 24,
     width: '100%',
@@ -1040,6 +1150,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+
   checkbox: {
     width: 20,
     height: 20,
@@ -1048,10 +1159,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   doneButtonText: {
     fontSize: 14,
     fontWeight: '700',
   },
+
+  // Atalho dos timers
+  timerShortcut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 13,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+
+  timerShortcutIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  timerShortcutContent: {
+    flex: 1,
+  },
+
+  timerShortcutTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  timerShortcutSubtitle: {
+    fontSize: 11,
+    marginTop: 3,
+  },
+
   navigationContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -1060,6 +1207,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderTopWidth: 1,
   },
+
   previousButton: {
     flex: 1,
     borderWidth: 1.5,
@@ -1070,10 +1218,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
   },
+
   previousButtonText: {
     fontSize: 15,
     fontWeight: '700',
   },
+
   nextButton: {
     flex: 1.5,
     borderRadius: 16,
@@ -1083,11 +1233,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
   },
+
   nextButtonText: {
     fontSize: 15,
     fontWeight: '800',
     color: '#FAF6F0',
   },
+
   settingsOverlay: {
     position: 'absolute',
     top: 0,
@@ -1096,10 +1248,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
   },
+
   settingsBackdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(44,32,22,0.5)',
   },
+
   settingsSheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
@@ -1107,6 +1261,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 36,
   },
+
   settingsHandle: {
     width: 36,
     height: 4,
@@ -1115,26 +1270,31 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 22,
   },
+
   settingsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 24,
   },
+
   settingsTitle: {
     fontSize: 19,
     fontWeight: '700',
   },
+
   settingsLabel: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1,
     marginBottom: 12,
   },
+
   fontOptions: {
     flexDirection: 'row',
     gap: 10,
   },
+
   fontOption: {
     flex: 1,
     borderWidth: 1.5,
@@ -1143,14 +1303,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   fontOptionText: {
     fontWeight: '700',
   },
+
   fontDescription: {
     fontSize: 12,
     marginTop: 8,
     marginBottom: 20,
   },
+
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1159,6 +1322,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     borderBottomWidth: 1,
   },
+
   settingIcon: {
     width: 38,
     height: 38,
@@ -1167,22 +1331,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   settingContent: {
     flex: 1,
   },
+
   settingTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
   },
+
   settingTitle: {
     fontSize: 14.5,
     fontWeight: '600',
   },
+
   settingDescription: {
     fontSize: 12,
     marginTop: 2,
   },
+
   comingSoonBadge: {
     backgroundColor: '#EBF2EB',
     borderWidth: 1,
@@ -1191,17 +1360,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
+
   comingSoonText: {
     color: '#6B8C6B',
     fontSize: 9.5,
     fontWeight: '700',
   },
+
   toggle: {
     width: 44,
     height: 26,
     borderRadius: 13,
     position: 'relative',
   },
+
   toggleCircle: {
     position: 'absolute',
     top: 3,

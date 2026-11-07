@@ -3,6 +3,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { PlannerProvider } from './src/context/PlannerContext';
 import { ShoppingListProvider } from './src/context/ShoppingListContext';
 import { PantryProvider } from './src/context/PantryContext';
+import { TimerProvider } from './src/context/TimerContext'; 
 
 export default function App() {
   const [theme, setTheme] = useState('dark');
@@ -15,7 +16,9 @@ export default function App() {
     <PantryProvider>
       <PlannerProvider>
         <ShoppingListProvider>
-          <AppNavigator theme={theme} toggleTheme={toggleTheme} />
+          <TimerProvider>
+            <AppNavigator theme={theme} toggleTheme={toggleTheme} />
+          </TimerProvider>
         </ShoppingListProvider>
       </PlannerProvider>
     </PantryProvider>

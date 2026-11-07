@@ -7,6 +7,7 @@ import PerfilScreen from '../screens/PerfilScreen';
 import SearchScreen from '../screens/SearchScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import ShoppingListScreen from '../screens/ShoppingListScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator();
 
@@ -34,6 +35,7 @@ interface TabNavigatorProps {
 
 export default function TabNavigator({ theme = 'dark', toggleTheme }: TabNavigatorProps) {
   const t = TEMAS[theme] || TEMAS.dark;
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -42,8 +44,8 @@ export default function TabNavigator({ theme = 'dark', toggleTheme }: TabNavigat
         tabBarStyle: {
           backgroundColor: t.tabBg,
           borderTopColor: t.border,
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
         tabBarActiveTintColor: t.activeTab,

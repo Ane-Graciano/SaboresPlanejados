@@ -24,7 +24,15 @@
     },
     "plugins": [
       "@react-native-google-signin/google-signin",
-      "expo-status-bar"
-    ]
+      "expo-status-bar",
+      "expo-font",
+      "expo-audio",
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "04070de2-2360-4e82-a570-eb06a134bd73"
+      }
+    }
   }
 }
