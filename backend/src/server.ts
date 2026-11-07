@@ -2,6 +2,7 @@
 import express from 'express';
 import receitaRoutes from './routes/receitaRoutes';
 import prisma from './lib/prisma';
+import preferenciasAlimentaresRoutes from './routes/preferenciasAlimentaresRoutes';
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/receitas', receitaRoutes);
+app.use('/preferencias-alimentares', preferenciasAlimentaresRoutes);
 
 const iniciarServidor = async () => {
   try {
