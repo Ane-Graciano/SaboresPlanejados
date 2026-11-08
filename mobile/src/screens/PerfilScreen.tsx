@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from 'firebase/auth';
 
 import ProfileHeaderCard from '../components/ProfileHeaderCard';
 import ProfileStatsRow from '../components/ProfileStatsRow';
@@ -24,6 +23,7 @@ import { usePlanner } from '../context/PlannerContext';
 import {
   auth,
   atualizarNomeUsuario,
+  sair
 } from '../services/authService';
 
 export default function PerfilScreen({
@@ -163,7 +163,7 @@ export default function PerfilScreen({
 
   const handleConfirmLogout = async () => {
     try {
-      await signOut(auth);
+      await sair();
       setShowLogoutModal(false);
     } catch (error) {
       console.error('Erro ao sair:', error);
