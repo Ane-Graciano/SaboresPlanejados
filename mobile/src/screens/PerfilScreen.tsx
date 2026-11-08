@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
@@ -18,6 +19,7 @@ import ProfileMenuList from '../components/ProfileMenuList';
 import LogoutModal from '../components/LogoutModal';
 
 import { getFavoritos } from '../utils/storage';
+
 import {
   auth,
   atualizarNomeUsuario,
@@ -98,9 +100,12 @@ export default function PerfilScreen({
     navigation.navigate('Favoritos');
   };
 
-  // Função para navegar para a tela de Despensa a partir do Perfil
   const handleNavigatePantry = () => {
     navigation.navigate('Pantry');
+  };
+
+  const handleNavigatePreferenciasAlimentares = () => {
+    navigation.navigate('PreferenciasAlimentares');
   };
 
   const handleAbrirEdicao = () => {
@@ -184,17 +189,16 @@ export default function PerfilScreen({
           favoritosCount={favoritosCount}
           planejadasCount={0}
           salvasCount={0}
-          onNavigateFavoritos={
-            handleNavigateFavoritos
-          }
+          onNavigateFavoritos={handleNavigateFavoritos}
           isDark={isDark}
         />
 
         <ProfileMenuList
-          onNavigateFavoritos={
-            handleNavigateFavoritos
+          onNavigateFavoritos={handleNavigateFavoritos}
+          onNavigatePantry={handleNavigatePantry}
+          onNavigatePreferenciasAlimentares={
+            handleNavigatePreferenciasAlimentares
           }
-          onNavigatePantry={handleNavigatePantry} 
           onOpenLogoutModal={() =>
             setShowLogoutModal(true)
           }

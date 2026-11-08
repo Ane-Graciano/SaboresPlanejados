@@ -1,10 +1,18 @@
+
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Switch } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Switch,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ProfileMenuListProps {
   onNavigateFavoritos: () => void;
-  onNavigatePantry: () => void; // <-- Adicionado na interface
+  onNavigatePantry: () => void;
+  onNavigatePreferenciasAlimentares: () => void;
   onOpenLogoutModal: () => void;
   onDirectLogout: () => void;
   isDark: boolean;
@@ -13,7 +21,8 @@ interface ProfileMenuListProps {
 
 export default function ProfileMenuList({
   onNavigateFavoritos,
-  onNavigatePantry, // <-- Recebido nas props
+  onNavigatePantry,
+  onNavigatePreferenciasAlimentares,
   onOpenLogoutModal,
   onDirectLogout,
   isDark,
@@ -25,42 +34,92 @@ export default function ProfileMenuList({
     <View style={styles.container}>
       {/* Seção Meu Aplicativo */}
       <Text style={styles.sectionTitle}>MEU APLICATIVO</Text>
+
       <View style={[styles.sectionBox, isDark && styles.sectionBoxDark]}>
-        <TouchableOpacity style={styles.row} onPress={onNavigateFavoritos}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={onNavigateFavoritos}
+        >
           <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
             <Ionicons name="heart-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
           </View>
+
           <View style={styles.rowTextContainer}>
-            <Text style={[styles.rowLabel, isDark && styles.textDark]}>Favoritos</Text>
-            <Text style={styles.rowSub}>Suas receitas salvas</Text>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Favoritos
+            </Text>
+            <Text style={styles.rowSub}>
+              Suas receitas salvas
+            </Text>
           </View>
+
           <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
         </TouchableOpacity>
 
-        {/* Botão Minha Despensa adicionado aqui */}
-        <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={onNavigatePantry}>
+        <TouchableOpacity
+          style={[styles.row, { borderBottomWidth: 0 }]}
+          onPress={onNavigatePantry}
+        >
           <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
             <Ionicons name="basket-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
           </View>
+
           <View style={styles.rowTextContainer}>
-            <Text style={[styles.rowLabel, isDark && styles.textDark]}>Minha despensa</Text>
-            <Text style={styles.rowSub}>Ingredientes disponíveis em casa</Text>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Minha despensa
+            </Text>
+            <Text style={styles.rowSub}>
+              Ingredientes disponíveis em casa
+            </Text>
           </View>
+
           <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
         </TouchableOpacity>
       </View>
 
       {/* Seção Preferências */}
       <Text style={styles.sectionTitle}>PREFERÊNCIAS</Text>
+
       <View style={[styles.sectionBox, isDark && styles.sectionBoxDark]}>
+        {/* Nova opção: Preferências alimentares */}
+        <TouchableOpacity
+          style={styles.row}
+          onPress={onNavigatePreferenciasAlimentares}
+        >
+          <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
+            <Ionicons
+              name="nutrition-outline"
+              size={18}
+              color={isDark ? '#E0E7E1' : '#2C2016'}
+            />
+          </View>
+
+          <View style={styles.rowTextContainer}>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Preferências alimentares
+            </Text>
+            <Text style={styles.rowSub}>
+              Alergias, restrições e alimentação
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
+        </TouchableOpacity>
+
         <View style={styles.row}>
           <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
             <Ionicons name="notifications-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
           </View>
+
           <View style={styles.rowTextContainer}>
-            <Text style={[styles.rowLabel, isDark && styles.textDark]}>Notificações</Text>
-            <Text style={styles.rowSub}>{notifs ? 'Ativadas' : 'Desativadas'}</Text>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Notificações
+            </Text>
+            <Text style={styles.rowSub}>
+              {notifs ? 'Ativadas' : 'Desativadas'}
+            </Text>
           </View>
+
           <Switch
             value={notifs}
             onValueChange={setNotifs}
@@ -73,10 +132,16 @@ export default function ProfileMenuList({
           <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
             <Ionicons name="moon-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
           </View>
+
           <View style={styles.rowTextContainer}>
-            <Text style={[styles.rowLabel, isDark && styles.textDark]}>Modo escuro</Text>
-            <Text style={styles.rowSub}>{isDark ? 'Ativado' : 'Desativado'}</Text>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Modo escuro
+            </Text>
+            <Text style={styles.rowSub}>
+              {isDark ? 'Ativado' : 'Desativado'}
+            </Text>
           </View>
+
           <Switch
             value={isDark}
             onValueChange={toggleTheme}
@@ -88,27 +153,43 @@ export default function ProfileMenuList({
 
       {/* Botão Sair da Conta */}
       <View style={[styles.sectionBox, { borderColor: '#F0C4AC', marginTop: 12 }]}>
-        <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={onOpenLogoutModal}>
+        <TouchableOpacity
+          style={[styles.row, { borderBottomWidth: 0 }]}
+          onPress={onOpenLogoutModal}
+        >
           <View style={[styles.rowIcon, { backgroundColor: '#FEF5F0' }]}>
             <Ionicons name="log-out-outline" size={18} color="#C46B3E" />
           </View>
+
           <View style={styles.rowTextContainer}>
-            <Text style={[styles.rowLabel, { color: '#C46B3E' }]}>Sair da conta</Text>
+            <Text style={[styles.rowLabel, { color: '#C46B3E' }]}>
+              Sair da conta
+            </Text>
           </View>
+
           <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
         </TouchableOpacity>
       </View>
 
       {/* Botão Entrar / Trocar Conta */}
       <View style={[styles.sectionBox, isDark && styles.sectionBoxDark, { marginTop: 12 }]}>
-        <TouchableOpacity style={[styles.row, { borderBottomWidth: 0 }]} onPress={onDirectLogout}>
+        <TouchableOpacity
+          style={[styles.row, { borderBottomWidth: 0 }]}
+          onPress={onDirectLogout}
+        >
           <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
             <Ionicons name="key-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
           </View>
+
           <View style={styles.rowTextContainer}>
-            <Text style={[styles.rowLabel, isDark && styles.textDark]}>Entrar / Trocar conta</Text>
-            <Text style={styles.rowSub}>Acesse a tela de login</Text>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Entrar / Trocar conta
+            </Text>
+            <Text style={styles.rowSub}>
+              Acesse a tela de login
+            </Text>
           </View>
+
           <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
         </TouchableOpacity>
       </View>
@@ -121,6 +202,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
   },
+
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
@@ -129,6 +211,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 4,
   },
+
   sectionBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -137,10 +220,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
   },
+
   sectionBoxDark: {
     backgroundColor: '#16251C',
     borderColor: '#2A3C30',
   },
+
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -149,6 +234,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F4EFEA',
     gap: 12,
   },
+
   rowIcon: {
     width: 36,
     height: 36,
@@ -156,17 +242,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   rowTextContainer: {
     flex: 1,
   },
+
   rowLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2C2016',
   },
+
   textDark: {
     color: '#E0E7E1',
   },
+
   rowSub: {
     fontSize: 12,
     color: '#8C7A6B',

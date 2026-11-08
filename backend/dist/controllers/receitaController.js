@@ -12,6 +12,20 @@ const getTodasReceitas = async (req, res) => {
             'data',
         ];
         const ordensValidas = ['asc', 'desc'];
+        if (ordenarPor !== undefined &&
+            (typeof ordenarPor !== 'string' ||
+                !opcoesOrdenacaoValidas.includes(ordenarPor))) {
+            return res.status(400).json({
+                mensagem: 'O critério de ordenação informado é inválido.',
+            });
+        }
+        if (ordem !== undefined &&
+            (typeof ordem !== 'string' ||
+                !ordensValidas.includes(ordem))) {
+            return res.status(400).json({
+                mensagem: 'A ordem de classificação informada é inválida.',
+            });
+        }
         const ordenarPorValido = typeof ordenarPor === 'string' &&
             opcoesOrdenacaoValidas.includes(ordenarPor)
             ? ordenarPor

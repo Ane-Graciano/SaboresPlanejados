@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,8 +10,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Speech from 'expo-speech';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
+
 import { Receita } from '../model/receita';
 import { useTimer } from '../context/TimerContext';
+import UnitConverterModal from '../components/UnitConverterModal';
+import { usePantry } from '../context/PantryContext';
 
 type ReadingModeRouteParams = {
   receita?: Receita;
@@ -34,11 +43,9 @@ const FONT_SIZES = [
   { label: 'A', size: 22, lineHeight: 38 },
 ];
 
-// Identifica durações escritas de diferentes maneiras.
 function identificarTempo(texto: string): number | null {
   const textoNormalizado = texto.toLowerCase();
 
-  // Exemplos: 1h30min, 1 hora e 30 minutos, 2h
   const horas = textoNormalizado.match(
     /(\d+)\s*(?:h|hora(?:s)?)(?:\s*(?:e)?\s*(\d+)\s*(?:m|min(?:s)?|minuto(?:s)?))?/
   );
@@ -50,7 +57,6 @@ function identificarTempo(texto: string): number | null {
     return quantidadeHoras * 3600 + quantidadeMinutos * 60;
   }
 
-  // Exemplos: 5 min, 5min, 5 minutos
   const minutos = textoNormalizado.match(
     /(\d+)\s*(?:m|min(?:s)?|minuto(?:s)?)(?![a-z])/
   );
@@ -59,7 +65,6 @@ function identificarTempo(texto: string): number | null {
     return Number(minutos[1]) * 60;
   }
 
-  // Exemplos: 30 s, 30 seg, 30 segundos
   const segundos = textoNormalizado.match(
     /(\d+)\s*(?:s|seg(?:s)?|segundo(?:s)?)(?![a-z])/
   );
@@ -83,11 +88,21 @@ function formatarTempo(segundos: number) {
   return `${minutos}:${segundosRestantes}`;
 }
 
+function normalizarComando(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 export default function ReadingModeScreen({
   navigation,
   route,
 }: ReadingModeScreenProps) {
   const receita = route.params?.receita;
+  const { consumirIngredientes } = usePantry();
+  const consumoRealizadoRef = useRef(false);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [doneSteps, setDoneSteps] = useState<Set<number>>(new Set());
@@ -97,6 +112,28 @@ export default function ReadingModeScreen({
   const [showSettings, setShowSettings] = useState(false);
   const [finished, setFinished] = useState(false);
   const [timerFeedback, setTimerFeedback] = useState(false);
+
+  // Estado responsável por abrir e fechar o conversor.
+  const [showUnitConverter, setShowUnitConverter] = useState(false);
+
+  // Estados do Modo Mãos Livres.
+  const [isHandsFreeMode, setIsHandsFreeMode] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState('');
+
+  // Referências utilizadas para controlar a escuta e evitar reinícios duplicados.
+  const handsFreeRef = useRef(false);
+  const speakingRef = useRef(false);
+  const recognitionStartingRef = useRef(false);
+  const recognitionActiveRef = useRef(false);
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Identifica cada leitura para ignorar callbacks de falas anteriores interrompidas.
+  const speechRequestIdRef = useRef(0);
+
+  const previousAppearanceRef = useRef<{
+    fontIdx: number;
+    highContrast: boolean;
+  } | null>(null);
 
   const {
     timers,
@@ -123,7 +160,6 @@ export default function ReadingModeScreen({
   const isLast = total > 0 && currentStep === total - 1;
   const isDone = doneSteps.has(currentStep);
 
-  // Detecta o tempo mencionado na etapa atual.
   const tempoDetectado = useMemo(
     () => identificarTempo(step),
     [step]
@@ -156,6 +192,11 @@ export default function ReadingModeScreen({
 
   const goNext = () => {
     if (isLast) {
+      if (!consumoRealizadoRef.current) {
+        consumirIngredientes(receita?.ingredientes || []);
+        consumoRealizadoRef.current = true;
+      }
+
       setFinished(true);
       return;
     }
@@ -176,7 +217,353 @@ export default function ReadingModeScreen({
     setCurrentStep(0);
     setDoneSteps(new Set());
     setTimerFeedback(false);
+    consumoRealizadoRef.current = false;
   };
+
+  const limparReinicioEscuta = () => {
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+  };
+
+  // Inicia o reconhecimento de voz.
+  const iniciarReconhecimento = () => {
+    if (
+      !handsFreeRef.current ||
+      speakingRef.current ||
+      recognitionActiveRef.current ||
+      recognitionStartingRef.current
+    ) {
+      return;
+    }
+
+    limparReinicioEscuta();
+
+    try {
+      recognitionStartingRef.current = true;
+
+      ExpoSpeechRecognitionModule.start({
+        lang: 'pt-BR',
+        interimResults: false,
+        maxAlternatives: 1,
+        continuous: true,
+      });
+    } catch (error) {
+      recognitionStartingRef.current = false;
+      setVoiceMessage('Não foi possível iniciar o reconhecimento de voz.');
+    }
+  };
+
+  // Agenda uma nova tentativa de escuta sem criar várias chamadas simultâneas.
+  const agendarReinicioEscuta = (atraso = 700) => {
+    limparReinicioEscuta();
+
+    restartTimeoutRef.current = setTimeout(() => {
+      restartTimeoutRef.current = null;
+
+      if (
+        handsFreeRef.current &&
+        !speakingRef.current &&
+        !recognitionActiveRef.current &&
+        !recognitionStartingRef.current
+      ) {
+        iniciarReconhecimento();
+      }
+    }, atraso);
+  };
+
+  // Encerra o Modo Mãos Livres e restaura a aparência anterior.
+  const desativarModoMaoLivre = async () => {
+    handsFreeRef.current = false;
+    speakingRef.current = false;
+    speechRequestIdRef.current += 1;
+    recognitionStartingRef.current = false;
+    recognitionActiveRef.current = false;
+
+    limparReinicioEscuta();
+
+    setIsHandsFreeMode(false);
+    setIsListening(false);
+    setVoiceMessage('Modo mãos livres desativado.');
+
+    try {
+      ExpoSpeechRecognitionModule.abort();
+    } catch {
+      // A biblioteca pode já ter encerrado o reconhecimento.
+    }
+
+    try {
+      await Speech.stop();
+    } catch {
+      // Não impede a desativação do modo.
+    }
+
+    const appearance = previousAppearanceRef.current;
+
+    if (appearance) {
+      setFontIdx(appearance.fontIdx);
+      setHighContrast(appearance.highContrast);
+      previousAppearanceRef.current = null;
+    }
+  };
+
+  // Lê a instrução atual e depois retoma a escuta.
+  const repetirInstrucao = async () => {
+    if (!handsFreeRef.current || !step) return;
+
+    limparReinicioEscuta();
+
+    // Invalida callbacks de uma leitura anterior, caso ela seja interrompida.
+    const speechRequestId = ++speechRequestIdRef.current;
+    speakingRef.current = true;
+    recognitionStartingRef.current = false;
+    recognitionActiveRef.current = false;
+    setIsListening(false);
+
+    try {
+      ExpoSpeechRecognitionModule.abort();
+    } catch {
+      // O reconhecimento pode já estar encerrado.
+    }
+
+    try {
+      await Speech.stop();
+    } catch {
+      // Continua com a leitura da instrução.
+    }
+
+    // Se outra etapa foi solicitada enquanto Speech.stop aguardava, descarta esta leitura.
+    if (speechRequestId !== speechRequestIdRef.current) return;
+
+    if (!handsFreeRef.current) {
+      speakingRef.current = false;
+      return;
+    }
+
+    Speech.speak(
+      `Etapa ${currentStep + 1}. ${step}`,
+      {
+        language: 'pt-BR',
+        rate: 0.9,
+        onDone: () => {
+          if (speechRequestId !== speechRequestIdRef.current) return;
+          speakingRef.current = false;
+
+          if (handsFreeRef.current) {
+            agendarReinicioEscuta(900);
+          }
+        },
+        onStopped: () => {
+          if (speechRequestId !== speechRequestIdRef.current) return;
+          speakingRef.current = false;
+
+          if (handsFreeRef.current) {
+            agendarReinicioEscuta(900);
+          }
+        },
+        onError: () => {
+          if (speechRequestId !== speechRequestIdRef.current) return;
+          speakingRef.current = false;
+          setVoiceMessage('Não foi possível ler a instrução em voz alta.');
+
+          if (handsFreeRef.current) {
+            agendarReinicioEscuta(900);
+          }
+        },
+      }
+    );
+  };
+
+  // Processa os comandos reconhecidos.
+  const processarComandoVoz = (texto: string) => {
+    if (!handsFreeRef.current) return;
+
+    const comando = normalizarComando(texto);
+
+    if (!comando) return;
+
+    if (
+      comando.includes('parar') ||
+      comando.includes('desativar') ||
+      comando.includes('encerrar escuta')
+    ) {
+      desativarModoMaoLivre();
+      return;
+    }
+
+    if (
+      comando.includes('repetir') ||
+      comando.includes('ler novamente')
+    ) {
+      repetirInstrucao();
+      return;
+    }
+
+    if (
+      comando.includes('passo anterior') ||
+      comando.includes('etapa anterior') ||
+      comando === 'voltar'
+    ) {
+      if (currentStep > 0) {
+        goPrev();
+        setVoiceMessage('Voltando para a etapa anterior.');
+      } else {
+        setVoiceMessage('Você já está na primeira etapa.');
+      }
+
+      return;
+    }
+
+    if (
+      comando.includes('proximo passo') ||
+      comando.includes('proxima etapa') ||
+      comando === 'avancar'
+    ) {
+      if (currentStep < total - 1) {
+        goNext();
+        setVoiceMessage('Avançando para a próxima etapa.');
+      } else {
+        goNext();
+      }
+
+      return;
+    }
+
+    setVoiceMessage('Comando não reconhecido. Tente novamente.');
+  };
+
+  // Ativa o Modo Mãos Livres e solicita a permissão de microfone.
+  const alternarModoMaoLivre = async () => {
+    if (handsFreeRef.current) {
+      await desativarModoMaoLivre();
+      return;
+    }
+
+    try {
+      const permissao =
+        await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+
+      if (!permissao.granted) {
+        setVoiceMessage(
+          'Permissão de microfone necessária para utilizar os comandos de voz.'
+        );
+        return;
+      }
+
+      previousAppearanceRef.current = {
+        fontIdx,
+        highContrast,
+      };
+
+      handsFreeRef.current = true;
+      speakingRef.current = false;
+
+      setIsHandsFreeMode(true);
+      setFontIdx(2);
+      setHighContrast(true);
+      setShowSettings(false);
+      setVoiceMessage('Modo mãos livres ativado. Vou ler a etapa atual.');
+
+      // A leitura automática será iniciada pelo efeito quando o modo for ativado.
+    } catch (error) {
+      setVoiceMessage(
+        'Não foi possível ativar o reconhecimento de voz neste aparelho.'
+      );
+    }
+  };
+
+  // Eventos do reconhecimento de voz.
+  useSpeechRecognitionEvent('start', () => {
+    recognitionStartingRef.current = false;
+    recognitionActiveRef.current = true;
+
+    if (handsFreeRef.current) {
+      setIsListening(true);
+      setVoiceMessage('Estou ouvindo. Diga um comando.');
+    }
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    recognitionStartingRef.current = false;
+    recognitionActiveRef.current = false;
+    setIsListening(false);
+
+    if (
+      handsFreeRef.current &&
+      !speakingRef.current
+    ) {
+      agendarReinicioEscuta(700);
+    }
+  });
+
+  useSpeechRecognitionEvent('result', (event) => {
+    if (!handsFreeRef.current || speakingRef.current) return;
+
+    if (event.isFinal) {
+      const transcricao = event.results?.[0]?.transcript;
+
+      if (transcricao) {
+        processarComandoVoz(transcricao);
+      }
+    }
+  });
+
+  useSpeechRecognitionEvent('error', (event) => {
+    recognitionStartingRef.current = false;
+    recognitionActiveRef.current = false;
+    setIsListening(false);
+
+    if (!handsFreeRef.current) return;
+
+    if (event.error === 'aborted') {
+      return;
+    }
+
+    if (event.error === 'no-speech') {
+      setVoiceMessage('Não identifiquei sua fala. Estou tentando novamente.');
+      agendarReinicioEscuta(900);
+      return;
+    }
+
+    setVoiceMessage(
+      'O reconhecimento de voz encontrou um problema. Tente desativar e ativar novamente.'
+    );
+  });
+
+  // Encerra os recursos de áudio quando a tela é desmontada.
+  useEffect(() => {
+    return () => {
+      handsFreeRef.current = false;
+      speakingRef.current = false;
+      speechRequestIdRef.current += 1;
+
+      limparReinicioEscuta();
+
+      try {
+        ExpoSpeechRecognitionModule.abort();
+      } catch {
+        // Não há reconhecimento ativo.
+      }
+
+      Speech.stop();
+    };
+  }, []);
+
+  // Ao ativar o modo ou mudar de etapa, lê automaticamente a instrução atual.
+  useEffect(() => {
+    if (!isHandsFreeMode || !handsFreeRef.current || !step) return;
+
+    setVoiceMessage(`Lendo a etapa ${currentStep + 1}.`);
+    repetirInstrucao();
+  }, [isHandsFreeMode, currentStep]);
+
+  // Se a receita for finalizada, encerra o Modo Mãos Livres.
+  useEffect(() => {
+    if (finished && handsFreeRef.current) {
+      desativarModoMaoLivre();
+    }
+  }, [finished]);
 
   if (!receita || total === 0) {
     return (
@@ -185,11 +572,7 @@ export default function ReadingModeScreen({
 
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
-            <Ionicons
-              name="restaurant-outline"
-              size={36}
-              color="#6B8C6B"
-            />
+            <Ionicons name="restaurant-outline" size={36} color="#6B8C6B" />
           </View>
 
           <Text style={styles.emptyTitle}>
@@ -220,11 +603,7 @@ export default function ReadingModeScreen({
 
         <View style={styles.finishedContainer}>
           <View style={styles.trophyContainer}>
-            <Ionicons
-              name="trophy-outline"
-              size={48}
-              color="#6B8C6B"
-            />
+            <Ionicons name="trophy-outline" size={48} color="#6B8C6B" />
           </View>
 
           <Text style={styles.finishedLabel}>
@@ -297,29 +676,17 @@ export default function ReadingModeScreen({
           ]}
           onPress={() => navigation.goBack?.()}
         >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={textColor}
-          />
+          <Ionicons name="chevron-back" size={22} color={textColor} />
         </TouchableOpacity>
 
         <View style={styles.titleContainer}>
-          <Text
-            style={[
-              styles.modeLabel,
-              { color: mutedColor },
-            ]}
-          >
+          <Text style={[styles.modeLabel, { color: mutedColor }]}>
             MODO DE PREPARO
           </Text>
 
           <Text
             numberOfLines={1}
-            style={[
-              styles.recipeTitle,
-              { color: textColor },
-            ]}
+            style={[styles.recipeTitle, { color: textColor }]}
           >
             {receita.titulo}
           </Text>
@@ -333,45 +700,40 @@ export default function ReadingModeScreen({
               borderColor,
             },
           ]}
+          onPress={() => setShowUnitConverter(true)}
+          accessibilityLabel="Abrir conversor de medidas"
+        >
+          <Ionicons name="calculator-outline" size={20} color={textColor} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.iconButton,
+            {
+              backgroundColor: cardColor,
+              borderColor,
+            },
+          ]}
           onPress={() => setShowSettings(true)}
         >
-          <Ionicons
-            name="settings-outline"
-            size={20}
-            color={textColor}
-          />
+          <Ionicons name="settings-outline" size={20} color={textColor} />
         </TouchableOpacity>
       </View>
 
       {/* Progresso das etapas */}
       <View style={styles.progressSection}>
         <View style={styles.progressHeader}>
-          <Text
-            style={[
-              styles.progressText,
-              { color: mutedColor },
-            ]}
-          >
+          <Text style={[styles.progressText, { color: mutedColor }]}>
             Etapa {currentStep + 1} de {total}
           </Text>
 
-          <Text
-            style={[
-              styles.progressText,
-              { color: mutedColor },
-            ]}
-          >
+          <Text style={[styles.progressText, { color: mutedColor }]}>
             {doneSteps.size} concluída
             {doneSteps.size !== 1 ? 's' : ''}
           </Text>
         </View>
 
-        <View
-          style={[
-            styles.progressTrack,
-            { backgroundColor: borderColor },
-          ]}
-        >
+        <View style={[styles.progressTrack, { backgroundColor: borderColor }]}>
           <View
             style={[
               styles.progressFill,
@@ -405,18 +767,45 @@ export default function ReadingModeScreen({
                 setCurrentStep(index);
               }}
             >
-              {doneSteps.has(index) &&
-                index !== currentStep && (
-                  <Ionicons
-                    name="checkmark"
-                    size={10}
-                    color="#FFFFFF"
-                  />
-                )}
+              {doneSteps.has(index) && index !== currentStep && (
+                <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+              )}
             </TouchableOpacity>
           ))}
         </View>
       </View>
+
+      {/* Indicador do Modo Mãos Livres */}
+      {isHandsFreeMode && (
+        <View style={styles.handsFreeStatus}>
+          <View style={styles.handsFreeStatusInfo}>
+            <Ionicons
+              name={isListening ? 'mic' : 'mic-off'}
+              size={22}
+              color="#FFFFFF"
+            />
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.handsFreeStatusTitle}>
+                Modo mãos livres ativado
+              </Text>
+
+              <Text style={styles.handsFreeStatusText}>
+                {voiceMessage}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.handsFreeStopButton}
+            onPress={desativarModoMaoLivre}
+          >
+            <Text style={styles.handsFreeStopText}>
+              Parar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Conteúdo da etapa */}
       <ScrollView
@@ -438,18 +827,12 @@ export default function ReadingModeScreen({
               style={[
                 styles.stepNumber,
                 {
-                  backgroundColor: isDone
-                    ? '#6B8C6B'
-                    : accentColor,
+                  backgroundColor: isDone ? '#6B8C6B' : accentColor,
                 },
               ]}
             >
               {isDone ? (
-                <Ionicons
-                  name="checkmark"
-                  size={22}
-                  color="#FAF6F0"
-                />
+                <Ionicons name="checkmark" size={22} color="#FAF6F0" />
               ) : (
                 <Text style={styles.stepNumberText}>
                   {currentStep + 1}
@@ -461,11 +844,7 @@ export default function ReadingModeScreen({
               <Text
                 style={[
                   styles.stepLabel,
-                  {
-                    color: isDone
-                      ? '#6B8C6B'
-                      : mutedColor,
-                  },
+                  { color: isDone ? '#6B8C6B' : mutedColor },
                 ]}
               >
                 {isDone
@@ -477,12 +856,7 @@ export default function ReadingModeScreen({
                       : 'EM ANDAMENTO'}
               </Text>
 
-              <Text
-                style={[
-                  styles.stepTitle,
-                  { color: textColor },
-                ]}
-              >
+              <Text style={[styles.stepTitle, { color: textColor }]}>
                 Etapa {currentStep + 1}
               </Text>
             </View>
@@ -493,15 +867,17 @@ export default function ReadingModeScreen({
               styles.instructionText,
               {
                 color: isDone ? mutedColor : textColor,
-                fontSize: FONT_SIZES[fontIdx].size,
-                lineHeight: FONT_SIZES[fontIdx].lineHeight,
+                fontSize: isHandsFreeMode ? 25 : FONT_SIZES[fontIdx].size,
+                lineHeight: isHandsFreeMode
+                  ? 43
+                  : FONT_SIZES[fontIdx].lineHeight,
               },
             ]}
           >
             {step}
           </Text>
 
-          {/* Atalho para iniciar timer detectado */}
+          {/* Tempo identificado */}
           {tempoDetectado !== null && (
             <View style={styles.detectedTimerContainer}>
               <View style={styles.detectedTimerInfo}>
@@ -525,15 +901,14 @@ export default function ReadingModeScreen({
               </View>
 
               <TouchableOpacity
-                style={styles.startTimerButton}
+                style={[
+                  styles.startTimerButton,
+                  isHandsFreeMode && { paddingVertical: 16 },
+                ]}
                 onPress={iniciarTimerDaEtapa}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name="play"
-                  size={16}
-                  color="#FFFFFF"
-                />
+                <Ionicons name="play" size={16} color="#FFFFFF" />
 
                 <Text style={styles.startTimerButtonText}>
                   Iniciar timer
@@ -565,9 +940,8 @@ export default function ReadingModeScreen({
                     ? '#2A4A2A'
                     : '#EBF2EB'
                   : 'transparent',
-                borderColor: isDone
-                  ? '#6B8C6B'
-                  : borderColor,
+                borderColor: isDone ? '#6B8C6B' : borderColor,
+                paddingVertical: isHandsFreeMode ? 18 : 12,
               },
             ]}
             onPress={markDone}
@@ -576,21 +950,13 @@ export default function ReadingModeScreen({
               style={[
                 styles.checkbox,
                 {
-                  backgroundColor: isDone
-                    ? '#6B8C6B'
-                    : 'transparent',
-                  borderColor: isDone
-                    ? '#6B8C6B'
-                    : '#C4B4A4',
+                  backgroundColor: isDone ? '#6B8C6B' : 'transparent',
+                  borderColor: isDone ? '#6B8C6B' : '#C4B4A4',
                 },
               ]}
             >
               {isDone && (
-                <Ionicons
-                  name="checkmark"
-                  size={13}
-                  color="#FFFFFF"
-                />
+                <Ionicons name="checkmark" size={13} color="#FFFFFF" />
               )}
             </View>
 
@@ -599,14 +965,15 @@ export default function ReadingModeScreen({
                 styles.doneButtonText,
                 {
                   color: isDone
-                    ? '#2E4A2E'
+                    ? highContrast
+                      ? '#F0F5F0'
+                      : '#2E4A2E'
                     : mutedColor,
+                  fontSize: isHandsFreeMode ? 17 : 14,
                 },
               ]}
             >
-              {isDone
-                ? 'Etapa concluída'
-                : 'Marcar como concluída'}
+              {isDone ? 'Etapa concluída' : 'Marcar como concluída'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -624,18 +991,9 @@ export default function ReadingModeScreen({
           >
             <View style={styles.activeTimersHeader}>
               <View style={styles.activeTimersHeading}>
-                <Ionicons
-                  name="time-outline"
-                  size={20}
-                  color="#64866A"
-                />
+                <Ionicons name="time-outline" size={20} color="#64866A" />
 
-                <Text
-                  style={[
-                    styles.activeTimersTitle,
-                    { color: textColor },
-                  ]}
-                >
+                <Text style={[styles.activeTimersTitle, { color: textColor }]}>
                   Seus timers
                 </Text>
               </View>
@@ -648,16 +1006,10 @@ export default function ReadingModeScreen({
             </View>
 
             {timersVisiveis.map((timer) => (
-              <View
-                key={timer.id}
-                style={styles.timerItem}
-              >
+              <View key={timer.id} style={styles.timerItem}>
                 <View style={styles.timerItemInfo}>
                   <Text
-                    style={[
-                      styles.timerItemName,
-                      { color: textColor },
-                    ]}
+                    style={[styles.timerItemName, { color: textColor }]}
                     numberOfLines={1}
                   >
                     {timer.name}
@@ -782,38 +1134,20 @@ export default function ReadingModeScreen({
           activeOpacity={0.8}
         >
           <View style={styles.timerShortcutIcon}>
-            <Ionicons
-              name="timer-outline"
-              size={19}
-              color="#64866A"
-            />
+            <Ionicons name="timer-outline" size={19} color="#64866A" />
           </View>
 
           <View style={styles.timerShortcutContent}>
-            <Text
-              style={[
-                styles.timerShortcutTitle,
-                { color: textColor },
-              ]}
-            >
+            <Text style={[styles.timerShortcutTitle, { color: textColor }]}>
               Criar timer personalizado
             </Text>
 
-            <Text
-              style={[
-                styles.timerShortcutSubtitle,
-                { color: mutedColor },
-              ]}
-            >
+            <Text style={[styles.timerShortcutSubtitle, { color: mutedColor }]}>
               Defina outro tempo de preparo
             </Text>
           </View>
 
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={mutedColor}
-          />
+          <Ionicons name="chevron-forward" size={18} color={mutedColor} />
         </TouchableOpacity>
       </ScrollView>
 
@@ -833,21 +1167,21 @@ export default function ReadingModeScreen({
             {
               borderColor,
               opacity: isFirst ? 0.35 : 1,
+              paddingVertical: isHandsFreeMode ? 20 : 15,
             },
           ]}
           disabled={isFirst}
           onPress={goPrev}
         >
-          <Ionicons
-            name="chevron-back"
-            size={20}
-            color={textColor}
-          />
+          <Ionicons name="chevron-back" size={20} color={textColor} />
 
           <Text
             style={[
               styles.previousButtonText,
-              { color: textColor },
+              {
+                color: textColor,
+                fontSize: isHandsFreeMode ? 18 : 15,
+              },
             ]}
           >
             Anterior
@@ -858,25 +1192,23 @@ export default function ReadingModeScreen({
           style={[
             styles.nextButton,
             {
-              backgroundColor: isLast
-                ? '#C46B3E'
-                : accentColor,
+              backgroundColor: isLast ? '#C46B3E' : accentColor,
+              paddingVertical: isHandsFreeMode ? 20 : 15,
             },
           ]}
           onPress={goNext}
         >
-          <Text style={styles.nextButtonText}>
-            {isLast
-              ? 'Finalizar receita'
-              : 'Próxima etapa'}
+          <Text
+            style={[
+              styles.nextButtonText,
+              { fontSize: isHandsFreeMode ? 18 : 15 },
+            ]}
+          >
+            {isLast ? 'Finalizar receita' : 'Próxima etapa'}
           </Text>
 
           {!isLast && (
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color="#FAF6F0"
-            />
+            <Ionicons name="chevron-forward" size={20} color="#FAF6F0" />
           )}
         </TouchableOpacity>
       </View>
@@ -894,41 +1226,23 @@ export default function ReadingModeScreen({
             style={[
               styles.settingsSheet,
               {
-                backgroundColor: highContrast
-                  ? '#1C2C1C'
-                  : '#FAF8F5',
+                backgroundColor: highContrast ? '#1C2C1C' : '#FAF8F5',
               },
             ]}
           >
             <View style={styles.settingsHandle} />
 
             <View style={styles.settingsHeader}>
-              <Text
-                style={[
-                  styles.settingsTitle,
-                  { color: textColor },
-                ]}
-              >
+              <Text style={[styles.settingsTitle, { color: textColor }]}>
                 Configurações de leitura
               </Text>
 
-              <TouchableOpacity
-                onPress={() => setShowSettings(false)}
-              >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={mutedColor}
-                />
+              <TouchableOpacity onPress={() => setShowSettings(false)}>
+                <Ionicons name="close" size={22} color={mutedColor} />
               </TouchableOpacity>
             </View>
 
-            <Text
-              style={[
-                styles.settingsLabel,
-                { color: mutedColor },
-              ]}
-            >
+            <Text style={[styles.settingsLabel, { color: mutedColor }]}>
               TAMANHO DA FONTE
             </Text>
 
@@ -940,13 +1254,9 @@ export default function ReadingModeScreen({
                     styles.fontOption,
                     {
                       backgroundColor:
-                        fontIdx === index
-                          ? '#2E4A2E'
-                          : 'transparent',
+                        fontIdx === index ? '#2E4A2E' : 'transparent',
                       borderColor:
-                        fontIdx === index
-                          ? '#2E4A2E'
-                          : borderColor,
+                        fontIdx === index ? '#2E4A2E' : borderColor,
                     },
                   ]}
                   onPress={() => setFontIdx(index)}
@@ -955,10 +1265,7 @@ export default function ReadingModeScreen({
                     style={[
                       styles.fontOptionText,
                       {
-                        color:
-                          fontIdx === index
-                            ? '#FAF6F0'
-                            : textColor,
+                        color: fontIdx === index ? '#FAF6F0' : textColor,
                         fontSize: font.size * 0.72 + 6,
                       },
                     ]}
@@ -969,12 +1276,7 @@ export default function ReadingModeScreen({
               ))}
             </View>
 
-            <Text
-              style={[
-                styles.fontDescription,
-                { color: mutedColor },
-              ]}
-            >
+            <Text style={[styles.fontDescription, { color: mutedColor }]}>
               {['Pequena', 'Média', 'Grande'][fontIdx]} —{' '}
               {FONT_SIZES[fontIdx].size}px
             </Text>
@@ -987,29 +1289,15 @@ export default function ReadingModeScreen({
               ]}
             >
               <View style={styles.settingIcon}>
-                <Ionicons
-                  name="sunny-outline"
-                  size={18}
-                  color={textColor}
-                />
+                <Ionicons name="sunny-outline" size={18} color={textColor} />
               </View>
 
               <View style={styles.settingContent}>
-                <Text
-                  style={[
-                    styles.settingTitle,
-                    { color: textColor },
-                  ]}
-                >
+                <Text style={[styles.settingTitle, { color: textColor }]}>
                   Alto contraste
                 </Text>
 
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: mutedColor },
-                  ]}
-                >
+                <Text style={[styles.settingDescription, { color: mutedColor }]}>
                   Fundo escuro para leitura confortável
                 </Text>
               </View>
@@ -1018,14 +1306,10 @@ export default function ReadingModeScreen({
                 style={[
                   styles.toggle,
                   {
-                    backgroundColor: highContrast
-                      ? '#2E4A2E'
-                      : '#D8CFBF',
+                    backgroundColor: highContrast ? '#2E4A2E' : '#D8CFBF',
                   },
                 ]}
-                onPress={() =>
-                  setHighContrast((value) => !value)
-                }
+                onPress={() => setHighContrast((value) => !value)}
               >
                 <View
                   style={[
@@ -1052,21 +1336,11 @@ export default function ReadingModeScreen({
               </View>
 
               <View style={styles.settingContent}>
-                <Text
-                  style={[
-                    styles.settingTitle,
-                    { color: textColor },
-                  ]}
-                >
+                <Text style={[styles.settingTitle, { color: textColor }]}>
                   Manter tela ligada
                 </Text>
 
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: mutedColor },
-                  ]}
-                >
+                <Text style={[styles.settingDescription, { color: mutedColor }]}>
                   Evita bloqueio durante o preparo
                 </Text>
               </View>
@@ -1075,14 +1349,10 @@ export default function ReadingModeScreen({
                 style={[
                   styles.toggle,
                   {
-                    backgroundColor: keepScreen
-                      ? '#2E4A2E'
-                      : '#D8CFBF',
+                    backgroundColor: keepScreen ? '#2E4A2E' : '#D8CFBF',
                   },
                 ]}
-                onPress={() =>
-                  setKeepScreen((value) => !value)
-                }
+                onPress={() => setKeepScreen((value) => !value)}
               >
                 <View
                   style={[
@@ -1094,10 +1364,14 @@ export default function ReadingModeScreen({
             </View>
 
             {/* Modo mãos livres */}
-            <View style={styles.settingRow}>
+            <TouchableOpacity
+              style={styles.settingRow}
+              activeOpacity={0.8}
+              onPress={alternarModoMaoLivre}
+            >
               <View style={styles.settingIcon}>
                 <Ionicons
-                  name="mic-outline"
+                  name={isHandsFreeMode ? 'mic' : 'mic-outline'}
                   size={18}
                   color={textColor}
                 />
@@ -1105,49 +1379,64 @@ export default function ReadingModeScreen({
 
               <View style={styles.settingContent}>
                 <View style={styles.settingTitleRow}>
-                  <Text
-                    style={[
-                      styles.settingTitle,
-                      { color: textColor },
-                    ]}
-                  >
+                  <Text style={[styles.settingTitle, { color: textColor }]}>
                     Modo mãos livres
                   </Text>
 
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>
-                      Em breve
+                  <View
+                    style={[
+                      styles.comingSoonBadge,
+                      isHandsFreeMode && styles.activeBadge,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.comingSoonText,
+                        isHandsFreeMode && styles.activeBadgeText,
+                      ]}
+                    >
+                      {isHandsFreeMode ? 'Ativado' : 'Controle por voz'}
                     </Text>
                   </View>
                 </View>
 
-                <Text
-                  style={[
-                    styles.settingDescription,
-                    { color: mutedColor },
-                  ]}
-                >
-                  Controle por voz
+                <Text style={[styles.settingDescription, { color: mutedColor }]}>
+                  Comandos de voz durante o preparo
                 </Text>
               </View>
 
               <View
                 style={[
                   styles.toggle,
-                  { backgroundColor: '#D8CFBF' },
+                  {
+                    backgroundColor: isHandsFreeMode ? '#2E4A2E' : '#D8CFBF',
+                  },
                 ]}
               >
                 <View
                   style={[
                     styles.toggleCircle,
-                    { left: 3, opacity: 0.45 },
+                    { left: isHandsFreeMode ? 21 : 3 },
                   ]}
                 />
               </View>
-            </View>
+            </TouchableOpacity>
+
+            {!!voiceMessage && (
+              <Text style={styles.voiceSettingsMessage}>
+                {voiceMessage}
+              </Text>
+            )}
           </View>
         </View>
       )}
+
+      {/* Conversor de medidas */}
+      <UnitConverterModal
+        visible={showUnitConverter}
+        onClose={() => setShowUnitConverter(false)}
+        highContrast={highContrast}
+      />
     </SafeAreaView>
   );
 }
@@ -1452,7 +1741,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Tempo identificado na etapa
   detectedTimerContainer: {
     backgroundColor: '#F3F7F0',
     borderRadius: 16,
@@ -1521,7 +1809,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Timers ativos
   activeTimersContainer: {
     borderRadius: 18,
     borderWidth: 1,
@@ -1616,7 +1903,6 @@ const styles = StyleSheet.create({
     color: '#64866A',
   },
 
-  // Atalho para criar timer manualmente
   timerShortcut: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1792,6 +2078,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
+    flexWrap: 'wrap',
   },
 
   settingTitle: {
@@ -1819,6 +2106,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  activeBadge: {
+    backgroundColor: '#DCEBDD',
+    borderColor: '#9DBB9F',
+  },
+
+  activeBadgeText: {
+    color: '#2E4A2E',
+  },
+
   toggle: {
     width: 44,
     height: 26,
@@ -1841,5 +2137,55 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
+  },
+
+  handsFreeStatus: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 13,
+    borderRadius: 16,
+    backgroundColor: '#2E4A2E',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  handsFreeStatusInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  handsFreeStatusTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  handsFreeStatusText: {
+    color: '#E1EDE1',
+    fontSize: 11,
+    marginTop: 3,
+  },
+
+  handsFreeStopButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+
+  handsFreeStopText: {
+    color: '#2E4A2E',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  voiceSettingsMessage: {
+    color: '#64866A',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
   },
 });

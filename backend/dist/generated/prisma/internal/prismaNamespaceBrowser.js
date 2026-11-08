@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReceitaEpocaOrderByRelevanceFieldEnum = exports.ReceitaEstacaoOrderByRelevanceFieldEnum = exports.ReceitaTemaOrderByRelevanceFieldEnum = exports.TemaOrderByRelevanceFieldEnum = exports.ReceitaDicaOrderByRelevanceFieldEnum = exports.ReceitaPassoOrderByRelevanceFieldEnum = exports.ReceitaIngredienteOrderByRelevanceFieldEnum = exports.IngredienteOrderByRelevanceFieldEnum = exports.ReceitaImagemOrderByRelevanceFieldEnum = exports.ReceitaOrderByRelevanceFieldEnum = exports.NullsOrder = exports.CategoriaOrderByRelevanceFieldEnum = exports.SortOrder = exports.ReceitaEpocaScalarFieldEnum = exports.ReceitaEstacaoScalarFieldEnum = exports.ReceitaTemaScalarFieldEnum = exports.TemaScalarFieldEnum = exports.ReceitaDicaScalarFieldEnum = exports.ReceitaPassoScalarFieldEnum = exports.ReceitaIngredienteScalarFieldEnum = exports.IngredienteScalarFieldEnum = exports.ReceitaImagemScalarFieldEnum = exports.ReceitaScalarFieldEnum = exports.CategoriaScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.PreferenciasAlimentaresOrderByRelevanceFieldEnum = exports.QueryMode = exports.JsonNullValueFilter = exports.ReceitaEpocaOrderByRelevanceFieldEnum = exports.ReceitaEstacaoOrderByRelevanceFieldEnum = exports.ReceitaTemaOrderByRelevanceFieldEnum = exports.TemaOrderByRelevanceFieldEnum = exports.ReceitaDicaOrderByRelevanceFieldEnum = exports.ReceitaPassoOrderByRelevanceFieldEnum = exports.ReceitaIngredienteOrderByRelevanceFieldEnum = exports.IngredienteOrderByRelevanceFieldEnum = exports.ReceitaImagemOrderByRelevanceFieldEnum = exports.ReceitaOrderByRelevanceFieldEnum = exports.NullsOrder = exports.CategoriaOrderByRelevanceFieldEnum = exports.JsonNullValueInput = exports.SortOrder = exports.PreferenciasAlimentaresScalarFieldEnum = exports.ReceitaEpocaScalarFieldEnum = exports.ReceitaEstacaoScalarFieldEnum = exports.ReceitaTemaScalarFieldEnum = exports.TemaScalarFieldEnum = exports.ReceitaDicaScalarFieldEnum = exports.ReceitaPassoScalarFieldEnum = exports.ReceitaIngredienteScalarFieldEnum = exports.IngredienteScalarFieldEnum = exports.ReceitaImagemScalarFieldEnum = exports.ReceitaScalarFieldEnum = exports.CategoriaScalarFieldEnum = exports.TransactionIsolationLevel = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -85,7 +85,8 @@ exports.ModelName = {
     Tema: 'Tema',
     ReceitaTema: 'ReceitaTema',
     ReceitaEstacao: 'ReceitaEstacao',
-    ReceitaEpoca: 'ReceitaEpoca'
+    ReceitaEpoca: 'ReceitaEpoca',
+    PreferenciasAlimentares: 'PreferenciasAlimentares'
 };
 /*
  * Enums
@@ -165,9 +166,18 @@ exports.ReceitaEpocaScalarFieldEnum = {
     receitaId: 'receitaId',
     epoca: 'epoca'
 };
+exports.PreferenciasAlimentaresScalarFieldEnum = {
+    id: 'id',
+    firebaseUid: 'firebaseUid',
+    restricoes: 'restricoes',
+    atualizadoEm: 'atualizadoEm'
+};
 exports.SortOrder = {
     asc: 'asc',
     desc: 'desc'
+};
+exports.JsonNullValueInput = {
+    JsonNull: exports.JsonNull
 };
 exports.CategoriaOrderByRelevanceFieldEnum = {
     id: 'id',
@@ -222,4 +232,16 @@ exports.ReceitaEstacaoOrderByRelevanceFieldEnum = {
 };
 exports.ReceitaEpocaOrderByRelevanceFieldEnum = {
     receitaId: 'receitaId'
+};
+exports.JsonNullValueFilter = {
+    DbNull: exports.DbNull,
+    JsonNull: exports.JsonNull,
+    AnyNull: exports.AnyNull
+};
+exports.QueryMode = {
+    default: 'default',
+    insensitive: 'insensitive'
+};
+exports.PreferenciasAlimentaresOrderByRelevanceFieldEnum = {
+    firebaseUid: 'firebaseUid'
 };

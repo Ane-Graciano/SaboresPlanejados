@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const receitaRoutes_1 = __importDefault(require("./routes/receitaRoutes"));
 const prisma_1 = __importDefault(require("./lib/prisma"));
+const preferenciasAlimentaresRoutes_1 = __importDefault(require("./routes/preferenciasAlimentaresRoutes"));
 const app = (0, express_1.default)();
 const PORT = 3000;
 app.use(express_1.default.json());
@@ -15,6 +16,7 @@ app.get('/', (req, res) => {
     });
 });
 app.use('/receitas', receitaRoutes_1.default);
+app.use('/preferencias-alimentares', preferenciasAlimentaresRoutes_1.default);
 const iniciarServidor = async () => {
     try {
         await prisma_1.default.$connect();

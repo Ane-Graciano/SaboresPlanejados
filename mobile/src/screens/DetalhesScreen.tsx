@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -17,7 +17,10 @@ import SeletorPorcoes from '../components/SeletorPorcoes';
 import CardIngredientes from '../components/CardIngredientes';
 import ItemPasso from '../components/ItemPasso';
 import Divisor from '../components/Divisor';
-import { ActiveTimersBar } from '../components/ActiveTimersBar'; // <-- Barra flutuante da US17
+import { ActiveTimersBar } from '../components/ActiveTimersBar';
+import AllergyAlertBanner from '../components/AllergyAlertBanner';
+import { buscarPreferenciasAlimentares } from '../services/preferenciasAlimentaresService';
+import { checkRestrictions } from '../utils/restrictionUtils';
 
 import { usePlanner } from '../context/PlannerContext';
 import { useShoppingList } from '../context/ShoppingListContext';
@@ -70,6 +73,7 @@ export default function DetalhesScreen({
   const [error, setError] = useState<string | null>(null);
   const [isNotFound, setIsNotFound] = useState<boolean>(false);
   const [isFavorito, setIsFavorito] = useState<boolean>(false);
+  const [restricoesUsuario, setRestricoesUsuario] = useState<string[]>([]);
 
   const porcoesIniciais = route?.params?.porcoesInicial || receitaRecebida?.porcoes || 2;
   const [porcoes, setPorcoes] = useState<number>(porcoesIniciais);
@@ -86,6 +90,39 @@ export default function DetalhesScreen({
       checkFavoritoStatus();
     }
   }, [receita]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    const carregarRestricoes = async () => {
+      try {
+        const preferencias = await buscarPreferenciasAlimentares();
+
+        if (ativo) {
+          setRestricoesUsuario(preferencias.restricoes);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar restrições alimentares:', err);
+      }
+    };
+
+    carregarRestricoes();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const ingredientesIncompativeis = useMemo(() => {
+    if (!receita || restricoesUsuario.length === 0) {
+      return [];
+    }
+
+    return checkRestrictions(
+      receita.ingredientes,
+      restricoesUsuario,
+    );
+  }, [receita, restricoesUsuario]);
 
   const carregarReceita = async (): Promise<void> => {
     if (!receitaId) {
@@ -244,20 +281,20 @@ export default function DetalhesScreen({
   const porcoesAlteradas = porcoes !== porcoesOriginais;
 
   const handleAdicionarAoPlanejamento = (): void => {
-  if (!receita) return;
+    if (!receita) return;
 
-  adicionarRefeicaoNoPlano({
-    ...receita,
-    porcoes: porcoes,
-    porcoesOriginal: receita.porcoes || 3,
-  });
+    adicionarRefeicaoNoPlano({
+      ...receita,
+      porcoes: porcoes,
+      porcoesOriginal: receita.porcoes || 3,
+    });
 
-  if (navigation?.navigate) {
-    navigation.navigate('MainTabs', { screen: 'Planner' });
-  } else if (navigation?.goBack) {
-    navigation.goBack();
-  }
-};
+    if (navigation?.navigate) {
+      navigation.navigate('MainTabs', { screen: 'Planner' });
+    } else if (navigation?.goBack) {
+      navigation.goBack();
+    }
+  };
 
   const handleGerarListaCompras = (): void => {
     if (!receita) return;
@@ -367,6 +404,10 @@ export default function DetalhesScreen({
                 ingredientes={receita.ingredientes}
                 porcoesBase={porcoesOriginais}
                 porcoesAtuais={porcoes}
+              />
+
+              <AllergyAlertBanner
+                ingredientesIncompativeis={ingredientesIncompativeis}
               />
 
               <View style={styles.estoqueListContainer}>

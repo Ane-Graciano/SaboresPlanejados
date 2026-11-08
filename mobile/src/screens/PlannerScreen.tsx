@@ -1,16 +1,39 @@
+
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+
 import { usePlanner } from '../context/PlannerContext';
 import { SeletorDias } from '../components/SeletorDias';
 import { CardSlotRefeicao } from '../components/CardSlotRefeicao';
+import AllergyAlertBanner from '../components/AllergyAlertBanner';
+
 import { TipoRefeicao } from '../types/planner';
 import { useShoppingList } from '../context/ShoppingListContext';
 
-const todosOsDiasCompletos = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+import { buscarPreferenciasAlimentares } from '../services/preferenciasAlimentaresService';
+import { buscarReceitaPorId } from '../services/receitaApiService';
+import {
+  checkRestrictions,
+  IngredienteIncompativel,
+} from '../utils/restrictionUtils';
 
-const rotulosRefeicoes: { key: TipoRefeicao; rotulo: string; emoji: string }[] = [
+const todosOsDiasCompletos = [
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+  "Domingo"
+];
+
+const rotulosRefeicoes: {
+  key: TipoRefeicao;
+  rotulo: string;
+  emoji: string;
+}[] = [
   { key: "cafeDaManha", rotulo: "Café da manhã", emoji: "☀️" },
   { key: "almoco", rotulo: "Almoço", emoji: "🌤️" },
   { key: "jantar", rotulo: "Jantar", emoji: "🌙" },
@@ -18,6 +41,14 @@ const rotulosRefeicoes: { key: TipoRefeicao; rotulo: string; emoji: string }[] =
 
 export default function PlannerScreen({ navigation }: any) {
   const [isDark, setIsDark] = useState(false);
+
+  // Restrições alimentares cadastradas pelo usuário.
+  const [restricoesUsuario, setRestricoesUsuario] = useState<string[]>([]);
+
+  // Incompatibilidades identificadas, organizadas pelo ID da receita.
+  const [alertasPorReceita, setAlertasPorReceita] = useState<
+    Record<string, IngredienteIncompativel[]>
+  >({});
 
   const {
     plano,
@@ -37,6 +68,112 @@ export default function PlannerScreen({ navigation }: any) {
 
   const { gerarDoPlanejamentoSemanal } = useShoppingList();
 
+  // Carrega as restrições alimentares do backend.
+  useEffect(() => {
+    let ativo = true;
+
+    const carregarRestricoes = async () => {
+      try {
+        const preferencias = await buscarPreferenciasAlimentares();
+
+        if (ativo) {
+          setRestricoesUsuario(
+            Array.isArray(preferencias.restricoes)
+              ? preferencias.restricoes
+              : []
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Não foi possível carregar as restrições alimentares:',
+          error
+        );
+      }
+    };
+
+    carregarRestricoes();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  // Consulta as receitas planejadas e verifica seus ingredientes.
+  useEffect(() => {
+    let ativo = true;
+
+    const verificarReceitasPlanejadas = async () => {
+      if (restricoesUsuario.length === 0) {
+        setAlertasPorReceita({});
+        return;
+      }
+
+      const idsReceitas = new Set<string>();
+
+      Object.values(plano || {}).forEach((dia) => {
+        if (!dia) return;
+
+        const refeicoes = [
+          dia.cafeDaManha,
+          dia.almoco,
+          dia.jantar,
+          ...(dia.extras || []),
+        ];
+
+        refeicoes.forEach((refeicao) => {
+          if (refeicao?.id) {
+            idsReceitas.add(String(refeicao.id));
+          }
+        });
+      });
+
+      if (idsReceitas.size === 0) {
+        setAlertasPorReceita({});
+        return;
+      }
+
+      const resultados = await Promise.all(
+        Array.from(idsReceitas).map(
+          async (id): Promise<[string, IngredienteIncompativel[]]> => {
+            try {
+              const receita = await buscarReceitaPorId(id);
+
+              if (!receita || !Array.isArray(receita.ingredientes)) {
+                return [id, []];
+              }
+
+              const incompatibilidades = checkRestrictions(
+                receita.ingredientes,
+                restricoesUsuario
+              );
+
+              return [id, incompatibilidades];
+            } catch (error) {
+              console.error(
+                `Não foi possível verificar a receita ${id}:`,
+                error
+              );
+
+              // Uma falha individual não impede a verificação
+              // das demais receitas planejadas.
+              return [id, []];
+            }
+          }
+        )
+      );
+
+      if (ativo) {
+        setAlertasPorReceita(Object.fromEntries(resultados));
+      }
+    };
+
+    verificarReceitasPlanejadas();
+
+    return () => {
+      ativo = false;
+    };
+  }, [plano, restricoesUsuario]);
+
   const hoje = new Date();
   const diaSemanaHoje = hoje.getDay();
   const hojeIndex = diaSemanaHoje === 0 ? 6 : diaSemanaHoje - 1;
@@ -51,9 +188,11 @@ export default function PlannerScreen({ navigation }: any) {
   const segundaFeiraDaSemana = new Date(hoje);
   segundaFeiraDaSemana.setDate(hoje.getDate() + distanciaAteSegunda);
 
-  const indiceSeguro = (diaSelecionado >= 0 && diaSelecionado < todosOsDiasCompletos.length) ? diaSelecionado : 0;
+  const indiceSeguro = (diaSelecionado >= 0 && diaSelecionado < todosOsDiasCompletos.length)
+    ? diaSelecionado
+    : 0;
 
-  // TRAVA DE DIA PASSADO: Verifica se o dia selecionado é anterior a hoje
+  // TRAVA DE DIA PASSADO.
   const ehDiaPassado = indiceSeguro < hojeIndex;
 
   const dataSelecionada = new Date(segundaFeiraDaSemana);
@@ -61,7 +200,9 @@ export default function PlannerScreen({ navigation }: any) {
 
   const nomeDiaFormatado = todosOsDiasCompletos[indiceSeguro] || "Segunda";
   const numeroDia = dataSelecionada.getDate();
-  const nomeMesFormatado = dataSelecionada.toLocaleDateString('pt-BR', { month: 'long' });
+  const nomeMesFormatado = dataSelecionada.toLocaleDateString('pt-BR', {
+    month: 'long'
+  });
 
   const themeBg = isDark ? '#15251C' : '#FFFFFF';
   const themeText = isDark ? '#FAF6F0' : '#2C2016';
@@ -71,33 +212,85 @@ export default function PlannerScreen({ navigation }: any) {
 
   const dadosDia = (plano && plano[indiceSeguro])
     ? plano[indiceSeguro]
-    : { cafeDaManha: null, almoco: null, jantar: null, extras: [] };
+    : {
+        cafeDaManha: null,
+        almoco: null,
+        jantar: null,
+        extras: []
+      };
 
-  const preenchidosFixos = [dadosDia.cafeDaManha, dadosDia.almoco, dadosDia.jantar].filter(Boolean).length;
-  const quantidadePreenchida = preenchidosFixos + (dadosDia.extras?.length || 0);
+  const preenchidosFixos = [
+    dadosDia.cafeDaManha,
+    dadosDia.almoco,
+    dadosDia.jantar
+  ].filter(Boolean).length;
+
+  const quantidadePreenchida =
+    preenchidosFixos + (dadosDia.extras?.length || 0);
+
+  // Reúne os alertas somente das refeições do dia selecionado.
+  const ingredientesIncompativeisDia: IngredienteIncompativel[] = [
+    ...(dadosDia.cafeDaManha?.id
+      ? alertasPorReceita[String(dadosDia.cafeDaManha.id)] || []
+      : []),
+
+    ...(dadosDia.almoco?.id
+      ? alertasPorReceita[String(dadosDia.almoco.id)] || []
+      : []),
+
+    ...(dadosDia.jantar?.id
+      ? alertasPorReceita[String(dadosDia.jantar.id)] || []
+      : []),
+
+    ...(dadosDia.extras || []).flatMap((refeicao) =>
+      alertasPorReceita[String(refeicao.id)] || []
+    ),
+  ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeBg }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.conteudoRolagem}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.conteudoRolagem}
+      >
 
         <View style={styles.linhaCabecalho}>
           <View>
-            <Text style={[styles.subtituloData, { color: themeMuted }]}>Planejamento Familiar</Text>
-            <Text style={[styles.titulo, { color: themeText }]}>Meu planejamento</Text>
+            <Text style={[styles.subtituloData, { color: themeMuted }]}>
+              Planejamento Familiar
+            </Text>
+            <Text style={[styles.titulo, { color: themeText }]}>
+              Meu planejamento
+            </Text>
           </View>
 
           <View style={styles.grupoHistorico}>
             <TouchableOpacity
               disabled={!podeDesfazer}
               onPress={desfazer}
-              style={[styles.botaoHistorico, { opacity: podeDesfazer ? 1 : 0.4, borderColor: themeBorder, backgroundColor: cardBg }]}
+              style={[
+                styles.botaoHistorico,
+                {
+                  opacity: podeDesfazer ? 1 : 0.4,
+                  borderColor: themeBorder,
+                  backgroundColor: cardBg
+                }
+              ]}
             >
               <Feather name="rotate-ccw" size={16} color={themeText} />
             </TouchableOpacity>
+
             <TouchableOpacity
               disabled={!podeRefazer}
               onPress={refazer}
-              style={[styles.botaoHistorico, { opacity: podeRefazer ? 1 : 0.4, borderColor: themeBorder, backgroundColor: cardBg }]}
+              style={[
+                styles.botaoHistorico,
+                {
+                  opacity: podeRefazer ? 1 : 0.4,
+                  borderColor: themeBorder,
+                  backgroundColor: cardBg
+                }
+              ]}
             >
               <Feather name="rotate-cw" size={16} color={themeText} />
             </TouchableOpacity>
@@ -105,7 +298,10 @@ export default function PlannerScreen({ navigation }: any) {
         </View>
 
         <View style={styles.seletorIntervalo}>
-          <Text style={[styles.rotuloIntervalo, { color: themeMuted }]}>Visualizar:</Text>
+          <Text style={[styles.rotuloIntervalo, { color: themeMuted }]}>
+            Visualizar:
+          </Text>
+
           {[3, 5, 7, 30].map((num) => (
             <TouchableOpacity
               key={num}
@@ -118,7 +314,13 @@ export default function PlannerScreen({ navigation }: any) {
                 }
               ]}
             >
-              <Text style={{ color: totalDias === num ? '#FAF6F0' : themeText, fontSize: 11.5, fontWeight: 'bold' }}>
+              <Text
+                style={{
+                  color: totalDias === num ? '#FAF6F0' : themeText,
+                  fontSize: 11.5,
+                  fontWeight: 'bold'
+                }}
+              >
                 {num === 30 ? '30 dias' : `${num} dias`}
               </Text>
             </TouchableOpacity>
@@ -164,6 +366,7 @@ export default function PlannerScreen({ navigation }: any) {
                 }}
                 onPressDetalhes={() => {
                   const refeicaoAtual = dadosDia[chaveFixa];
+
                   if (refeicaoAtual && refeicaoAtual.id) {
                     navigation.navigate('Detalhes', {
                       receitaId: String(refeicaoAtual.id),
@@ -198,6 +401,11 @@ export default function PlannerScreen({ navigation }: any) {
             />
           ))}
 
+          {/* Alertas das receitas do dia selecionado. */}
+          <AllergyAlertBanner
+            ingredientesIncompativeis={ingredientesIncompativeisDia}
+          />
+
           {!ehDiaPassado ? (
             <TouchableOpacity
               style={styles.botaoAdicionarGeral}
@@ -208,10 +416,17 @@ export default function PlannerScreen({ navigation }: any) {
               }}
             >
               <Feather name="plus" size={18} color="#FAF6F0" />
-              <Text style={styles.textoBotaoAdicionar}>Adicionar receita</Text>
+              <Text style={styles.textoBotaoAdicionar}>
+                Adicionar receita
+              </Text>
             </TouchableOpacity>
           ) : (
-            <View style={[styles.avisoHistorico, { backgroundColor: cardBg, borderColor: themeBorder }]}>
+            <View
+              style={[
+                styles.avisoHistorico,
+                { backgroundColor: cardBg, borderColor: themeBorder }
+              ]}
+            >
               <Feather name="clock" size={14} color={themeMuted} />
               <Text style={[styles.textoAvisoHistorico, { color: themeMuted }]}>
                 Visualizando histórico. Alterações não são permitidas em dias passados.
@@ -228,7 +443,9 @@ export default function PlannerScreen({ navigation }: any) {
             }}
           >
             <Feather name="zap" size={16} color="#FAF6F0" />
-            <Text style={styles.textoBotaoGerarCompras}>Gerar compras da semana</Text>
+            <Text style={styles.textoBotaoGerarCompras}>
+              Gerar compras da semana
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -246,16 +463,42 @@ export default function PlannerScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   conteudoRolagem: { paddingHorizontal: 20, paddingBottom: 40 },
-  linhaCabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
+  linhaCabecalho: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12
+  },
   subtituloData: { fontSize: 13, fontWeight: '500' },
   titulo: { fontSize: 24, fontWeight: 'bold' },
   grupoHistorico: { flexDirection: 'row', gap: 8 },
-  botaoHistorico: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  seletorIntervalo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 12 },
+  botaoHistorico: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  seletorIntervalo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: 12
+  },
   rotuloIntervalo: { fontSize: 12, fontWeight: '600' },
-  chipIntervalo: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
+  chipIntervalo: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1
+  },
   containerProgresso: { marginVertical: 10 },
-  rotulosProgresso: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  rotulosProgresso: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6
+  },
   textoProgresso: { fontSize: 12, fontWeight: '600' },
   tituloDiaSelecionado: { fontSize: 17, fontWeight: '600', marginBottom: 14 },
   listaRefeicoes: { gap: 4 },
@@ -304,6 +547,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  caixaAviso: { marginTop: 20, backgroundColor: '#2C2016', padding: 10, borderRadius: 10, alignSelf: 'center' },
-  textoAviso: { color: '#FAF6F0', fontSize: 12, fontWeight: '600' },
+  caixaAviso: {
+    marginTop: 20,
+    backgroundColor: '#2C2016',
+    padding: 10,
+    borderRadius: 10,
+    alignSelf: 'center'
+  },
+  textoAviso: {
+    color: '#FAF6F0',
+    fontSize: 12,
+    fontWeight: '600'
+  },
 });

@@ -27,7 +27,14 @@
       "expo-status-bar",
       "expo-font",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "O Sabores Planejados precisa acessar o microfone para reconhecer seus comandos de voz.",
+          "speechRecognitionPermission": "O Sabores Planejados precisa reconhecer sua fala para controlar o preparo."
+        }
+      ]
     ],
     "extra": {
       "eas": {

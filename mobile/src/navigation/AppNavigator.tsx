@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -15,6 +14,7 @@ import { SignupScreen } from '../screens/SignupScreen';
 import SearchScreen from '../screens/SearchScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import TimerScreen from '../screens/TimerScreen';
+import PreferenciasAlimentaresScreen from '../screens/PreferenciasAlimentaresScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -104,7 +104,6 @@ export default function AppNavigator({
               component={ReadingModeScreen}
             />
 
-            {/* Tela para criar e acompanhar os timers */}
             <Stack.Screen
               name="TimerScreen"
               component={TimerScreen}
@@ -113,6 +112,16 @@ export default function AppNavigator({
             <Stack.Screen name="Favoritos">
               {(props) => (
                 <FavoritosScreen
+                  {...props}
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="PreferenciasAlimentares">
+              {(props) => (
+                <PreferenciasAlimentaresScreen
                   {...props}
                   theme={theme}
                   toggleTheme={toggleTheme}
