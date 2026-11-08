@@ -1,11 +1,19 @@
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-export default function ProfileStatsRow({ favoritosCount, planejadasCount, salvasCount, onNavigateFavoritos, isDark }) {
+export default function ProfileStatsRow({
+  favoritosCount,
+  planejadasCount,
+  salvasCount,
+  onNavigateFavoritos,
+  onNavigatePlanejadas,
+  isDark,
+}) {
   return (
     <View style={styles.statsContainer}>
-      {/* Botão Dinâmico de Favoritos */}
+      {/* Favoritos */}
       <TouchableOpacity
         style={[
           styles.statCard,
@@ -35,6 +43,7 @@ export default function ProfileStatsRow({ favoritosCount, planejadasCount, salva
             borderColor: isDark ? '#233A2C' : '#E8DFD3',
           },
         ]}
+        onPress={onNavigatePlanejadas}
         activeOpacity={0.7}
       >
         <Feather name="calendar" size={18} color="#6B8C6B" />

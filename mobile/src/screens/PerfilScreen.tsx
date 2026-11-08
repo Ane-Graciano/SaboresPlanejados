@@ -19,6 +19,7 @@ import ProfileMenuList from '../components/ProfileMenuList';
 import LogoutModal from '../components/LogoutModal';
 
 import { getFavoritos } from '../utils/storage';
+import { usePlanner } from '../context/PlannerContext';
 
 import {
   auth,
@@ -40,8 +41,23 @@ export default function PerfilScreen({
   const [showEditModal, setShowEditModal] = useState(false);
   const [nomeEditado, setNomeEditado] = useState('');
   const [salvandoNome, setSalvandoNome] = useState(false);
-
+  const { plano } = usePlanner();
   const isDark = theme === 'dark';
+
+  const planejadasCount = Object.values(plano || {}).reduce(
+    (total, dia) => {
+      if (!dia) return total;
+
+      return (
+        total +
+        (dia.cafeDaManha ? 1 : 0) +
+        (dia.almoco ? 1 : 0) +
+        (dia.jantar ? 1 : 0) +
+        (dia.extras?.length || 0)
+      );
+    },
+    0,
+  );
 
   useEffect(() => {
     carregarUsuario();
@@ -111,6 +127,10 @@ export default function PerfilScreen({
   const handleAbrirEdicao = () => {
     setNomeEditado(nome);
     setShowEditModal(true);
+  };
+
+  const handleNavigatePlanejadas = () => {
+    navigation.navigate('Planner');
   };
 
   const handleSalvarNome = async () => {
@@ -187,9 +207,10 @@ export default function PerfilScreen({
 
         <ProfileStatsRow
           favoritosCount={favoritosCount}
-          planejadasCount={0}
+          planejadasCount={planejadasCount}
           salvasCount={0}
           onNavigateFavoritos={handleNavigateFavoritos}
+          onNavigatePlanejadas={handleNavigatePlanejadas}
           isDark={isDark}
         />
 

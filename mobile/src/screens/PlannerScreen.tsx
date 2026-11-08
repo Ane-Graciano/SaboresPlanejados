@@ -34,10 +34,10 @@ const rotulosRefeicoes: {
   rotulo: string;
   emoji: string;
 }[] = [
-  { key: "cafeDaManha", rotulo: "Café da manhã", emoji: "☀️" },
-  { key: "almoco", rotulo: "Almoço", emoji: "🌤️" },
-  { key: "jantar", rotulo: "Jantar", emoji: "🌙" },
-];
+    { key: "cafeDaManha", rotulo: "Café da manhã", emoji: "☀️" },
+    { key: "almoco", rotulo: "Almoço", emoji: "🌤️" },
+    { key: "jantar", rotulo: "Jantar", emoji: "🌙" },
+  ];
 
 export default function PlannerScreen({ navigation }: any) {
   const [isDark, setIsDark] = useState(false);
@@ -213,11 +213,11 @@ export default function PlannerScreen({ navigation }: any) {
   const dadosDia = (plano && plano[indiceSeguro])
     ? plano[indiceSeguro]
     : {
-        cafeDaManha: null,
-        almoco: null,
-        jantar: null,
-        extras: []
-      };
+      cafeDaManha: null,
+      almoco: null,
+      jantar: null,
+      extras: []
+    };
 
   const preenchidosFixos = [
     dadosDia.cafeDaManha,
@@ -302,10 +302,16 @@ export default function PlannerScreen({ navigation }: any) {
             Visualizar:
           </Text>
 
-          {[3, 5, 7, 30].map((num) => (
+          {[3, 5, 7].map((num) => (
             <TouchableOpacity
               key={num}
-              onPress={() => setTotalDias(num)}
+              onPress={() => {
+                setTotalDias(num);
+
+                if (diaSelecionado >= num) {
+                  setDiaSelecionado(0);
+                }
+              }}
               style={[
                 styles.chipIntervalo,
                 {

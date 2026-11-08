@@ -461,7 +461,6 @@ export default function ReadingModeScreen({
 
       setIsHandsFreeMode(true);
       setFontIdx(2);
-      setHighContrast(true);
       setShowSettings(false);
       setVoiceMessage('Modo mãos livres ativado. Vou ler a etapa atual.');
 

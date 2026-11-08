@@ -94,10 +94,14 @@ export default function AppNavigator({
               )}
             </Stack.Screen>
 
-            <Stack.Screen
-              name="Detalhes"
-              component={DetalhesScreen}
-            />
+            <Stack.Screen name="Detalhes">
+              {(props) => (
+                <DetalhesScreen
+                  {...props}
+                  theme={theme}
+                />
+              )}
+            </Stack.Screen>
 
             <Stack.Screen
               name="ReadingMode"
