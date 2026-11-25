@@ -38,6 +38,8 @@ import {
 
 import { buscarReceitaPorId } from '../services/receitaApiService';
 import { Receita } from '../model/receita';
+import { RecipeVideoPlayer } from '../components/RecipeVideoPlayer';
+import { RecipeNutritionCard } from '../components/RecipeNutritionCard';
 
 type DetalhesRouteParams = {
   receita?: Receita;
@@ -103,6 +105,10 @@ export default function DetalhesScreen({
     route?.params?.porcoesInicial || receitaRecebida?.porcoes || 2;
 
   const [porcoes, setPorcoes] = useState<number>(porcoesIniciais);
+  
+  const [mostrarVideo, setMostrarVideo] = useState(false);
+  const [mostrarNutricao, setMostrarNutricao] = useState(false);
+  const [mostrarMidiaNutricao, setMostrarMidiaNutricao] = useState(false);
 
   const [passosConcluidos, setPassosConcluidos] =
     useState<Set<number>>(new Set<number>());
@@ -521,6 +527,25 @@ export default function DetalhesScreen({
           )}
         </View>
 
+        {mostrarMidiaNutricao && (
+          <View style={styles.contentSection}>
+            <RecipeVideoPlayer videoUrl={(receita as any).videoUrl} />
+            
+            <RecipeNutritionCard
+              nutrition={{
+                calories: (receita as any).calorias || 'N/D',
+                protein: (receita as any).proteinas || 'N/D',
+                carbs: (receita as any).carboidratos || 'N/D',
+                fat: (receita as any).gorduras || 'N/D',
+                fiber: (receita as any).fibra || 'N/D',
+                sodium: (receita as any).sodio || 'N/D',
+              }}
+              servingsMultiplier={porcoes / porcoesOriginais}
+            />
+            <Divisor />
+          </View>
+        )}
+
         <Divisor />
 
         {receita.ingredientes && receita.ingredientes.length > 0 && (
@@ -853,9 +878,10 @@ export default function DetalhesScreen({
             },
           ]}
           activeOpacity={0.8}
+          onPress={() => setMostrarMidiaNutricao((prev) => !prev)}
         >
           <Ionicons
-            name="play-circle-outline"
+            name={mostrarMidiaNutricao ? "eye-off-outline" : "play-circle-outline"}
             size={18}
             color={cores.destaque}
           />
@@ -866,7 +892,7 @@ export default function DetalhesScreen({
               { color: cores.destaque },
             ]}
           >
-            Vídeo e informações nutricionais
+            {mostrarMidiaNutricao ? "Ocultar vídeo e nutrição" : "Vídeo e informações nutricionais"}
           </Text>
         </TouchableOpacity>
 

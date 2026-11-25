@@ -1,6 +1,7 @@
 import { Receita } from "../model/receita";
 
-const API_URL = 'http://192.168.1.51:3000';
+const API_URL = 'http://192.168.1.50:3000';
+// const API_URL = 'http://10.13.56.72:3000';
 
 export interface FiltrosReceita {
   busca?: string;

@@ -34,7 +34,9 @@
           "microphonePermission": "O Sabores Planejados precisa acessar o microfone para reconhecer seus comandos de voz.",
           "speechRecognitionPermission": "O Sabores Planejados precisa reconhecer sua fala para controlar o preparo."
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-video"
     ],
     "extra": {
       "eas": {
