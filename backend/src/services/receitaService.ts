@@ -74,6 +74,14 @@ const converterReceita = (
     descricao: receita.descricao,
     historia: receita.historia ?? undefined,
 
+    videoUrl: receita.videoUrl ?? undefined,
+    calorias: receita.calorias ?? undefined,
+    proteinas: receita.proteinas ?? undefined,
+    carboidratos: receita.carboidratos ?? undefined,
+    gorduras: receita.gorduras ?? undefined,
+    fibra: receita.fibra ?? undefined,
+    sodio: receita.sodio ?? undefined,
+
     ingredientes: receita.ingredientes.map((item) => ({
       nome: item.ingrediente.nome,
       qtd: item.qtd ?? undefined,

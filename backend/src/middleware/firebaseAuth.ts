@@ -27,6 +27,8 @@ export const verificarAutenticacao = async (
 
     next();
   } catch (error) {
+    console.error('Erro na validação do Firebase:', error);
+
     return res.status(401).json({
       message: 'Token inválido ou expirado.',
     });

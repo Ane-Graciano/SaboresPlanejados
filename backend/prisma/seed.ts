@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 
 import prisma from '../src/lib/prisma';
@@ -26,42 +25,38 @@ async function seed() {
 
     // 2. Cadastrar ou atualizar receitas
     for (const receita of receitas) {
+      const dadosReceita = {
+        titulo: receita.titulo,
+        tempo: receita.tempo,
+        dataAdicao: new Date(`${receita.dataAdicao}T00:00:00.000Z`),
+        categoriaId: receita.categoriaId,
+        isSaudavel: receita.isSaudavel,
+        imagem: receita.imagem,
+        avaliacao: receita.avaliacao,
+        avaliacoesCount: receita.avaliacoesCount,
+        dificuldade: receita.dificuldade,
+        porcoes: receita.porcoes,
+        descricao: receita.descricao,
+        historia: receita.historia,
+        chef: receita.chef,
+        tipoPrato: receita.tipoPrato,
+        culinaria: receita.culinaria,
+        // Campos novos da US24 incluídos aqui:
+        videoUrl: (receita as any).videoUrl || null,
+        calorias: (receita as any).calorias || null,
+        proteinas: (receita as any).proteinas || null,
+        carboidratos: (receita as any).carboidratos || null,
+        gorduras: (receita as any).gorduras || null,
+        fibra: (receita as any).fibra || null,
+        sodio: (receita as any).sodio || null,
+      };
+
       await tx.receita.upsert({
         where: { id: receita.id },
-        update: {
-          titulo: receita.titulo,
-          tempo: receita.tempo,
-          dataAdicao: new Date(`${receita.dataAdicao}T00:00:00.000Z`),
-          categoriaId: receita.categoriaId,
-          isSaudavel: receita.isSaudavel,
-          imagem: receita.imagem,
-          avaliacao: receita.avaliacao,
-          avaliacoesCount: receita.avaliacoesCount,
-          dificuldade: receita.dificuldade,
-          porcoes: receita.porcoes,
-          descricao: receita.descricao,
-          historia: receita.historia,
-          chef: receita.chef,
-          tipoPrato: receita.tipoPrato,
-          culinaria: receita.culinaria,
-        },
+        update: dadosReceita,
         create: {
           id: receita.id,
-          titulo: receita.titulo,
-          tempo: receita.tempo,
-          dataAdicao: new Date(`${receita.dataAdicao}T00:00:00.000Z`),
-          categoriaId: receita.categoriaId,
-          isSaudavel: receita.isSaudavel,
-          imagem: receita.imagem,
-          avaliacao: receita.avaliacao,
-          avaliacoesCount: receita.avaliacoesCount,
-          dificuldade: receita.dificuldade,
-          porcoes: receita.porcoes,
-          descricao: receita.descricao,
-          historia: receita.historia,
-          chef: receita.chef,
-          tipoPrato: receita.tipoPrato,
-          culinaria: receita.culinaria,
+          ...dadosReceita,
         },
       });
 
@@ -95,7 +90,6 @@ async function seed() {
       });
 
       // 4. Cadastrar imagens adicionais
-      // A imagem principal já está armazenada em Receita.imagem.
       const imagensAdicionais = receita.imagens?.slice(1) ?? [];
 
       if (imagensAdicionais.length > 0) {

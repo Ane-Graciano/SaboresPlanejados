@@ -25,6 +25,13 @@ export const receitas: Receita[] = [
 
     descricao:
       'Um prato simples e reconfortante com molho rústico de tomate, manjericão e alho.',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    calorias: '420 kcal',
+    proteinas: '12g',
+    carboidratos: '75g',
+    gorduras: '8g',
+    fibra: '5g',
+    sodio: '450mg',
 
     ingredientes: [
       {
@@ -123,6 +130,13 @@ export const receitas: Receita[] = [
 
     descricao:
       'Peito de frango suculento envolvido em molho cremoso de ervas.',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    calorias: '380 kcal',
+    proteinas: '42g',
+    carboidratos: '4g',
+    gorduras: '22g',
+    fibra: '1g',
+    sodio: '520mg',
 
     ingredientes: [
       {
@@ -221,6 +235,13 @@ export const receitas: Receita[] = [
 
     descricao:
       'Combinação nutritiva de folhas frescas, abacate e grão-de-bico.',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    calorias: '290 kcal',
+    proteinas: '9g',
+    carboidratos: '32g',
+    gorduras: '14g',
+    fibra: '10g',
+    sodio: '280mg',
 
     ingredientes: [
       {
@@ -313,6 +334,13 @@ export const receitas: Receita[] = [
 
     descricao:
       'Rabanada tradicional para deixar as celebrações de Natal ainda mais especiais.',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    calorias: '230 kcal',
+    proteinas: '5g',
+    carboidratos: '30g',
+    gorduras: '9g',
+    fibra: '1g',
+    sodio: '180mg',
 
     ingredientes: [
       {

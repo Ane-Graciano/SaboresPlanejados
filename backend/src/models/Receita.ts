@@ -18,6 +18,14 @@ export interface Receita {
 
   descricao: string;
 
+  videoUrl?: string;
+  calorias?: string;
+  proteinas?: string;
+  carboidratos?: string;
+  gorduras?: string;
+  fibra?: string;
+  sodio?: string;
+
   ingredientes: Ingrediente[];
 
   passos?: string[];

@@ -4,6 +4,8 @@ import { getAuth } from 'firebase-admin/auth';
 const firebaseApp =
   getApps().length > 0
     ? getApps()[0]
-    : initializeApp();
+    : initializeApp({
+        projectId: 'sabores-planejados',
+      });
 
 export const adminAuth = getAuth(firebaseApp);

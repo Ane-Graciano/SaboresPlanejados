@@ -33,6 +33,14 @@ model Receita {
   tipoPrato       String
   culinaria       String
 
+  videoUrl        String?            @db.Text
+  calorias        String?
+  proteinas       String?
+  carboidratos    String?
+  gorduras        String?
+  fibra           String?
+  sodio           String?
+
   categoria       Categoria          @relation(fields: [categoriaId], references: [id])
   imagens         ReceitaImagem[]
   ingredientes    ReceitaIngrediente[]
