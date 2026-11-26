@@ -15,6 +15,7 @@ import SearchScreen from '../screens/SearchScreen';
 import PlannerScreen from '../screens/PlannerScreen';
 import TimerScreen from '../screens/TimerScreen';
 import PreferenciasAlimentaresScreen from '../screens/PreferenciasAlimentaresScreen';
+import HistoricoScreen from '../screens/HistoricoScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -129,6 +130,15 @@ export default function AppNavigator({
                   {...props}
                   theme={theme}
                   toggleTheme={toggleTheme}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="Historico">
+              {(props) => (
+                <HistoricoScreen
+                  {...props}
+                  theme={theme}
                 />
               )}
             </Stack.Screen>

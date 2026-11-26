@@ -1,9 +1,10 @@
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ItemListaCompras,
   Estabelecimento,
 } from '../types/shopping';
+import { auth } from '../services/firebaseConfig';
+import { getShoppingListFromCloud, saveShoppingListToCloud } from '../services/firestoreSync';
 
 const SHOPPING_LIST_KEY = '@sabores_lista_compras';
 const SHOPPING_STORES_KEY = '@sabores_estabelecimentos';
@@ -20,10 +21,17 @@ export interface DadosListaCompras {
   estabelecimentoSelecionadoId: string;
 }
 
-// Carrega os dados e migra automaticamente o formato antigo.
 export const carregarDadosListaCompras =
   async (): Promise<DadosListaCompras> => {
     try {
+      const user = auth.currentUser;
+      if (user) {
+        const cloudItems = await getShoppingListFromCloud(user.uid);
+        if (cloudItems) {
+          await AsyncStorage.setItem(SHOPPING_LIST_KEY, JSON.stringify(cloudItems));
+        }
+      }
+
       const [itensSalvos, lojasSalvas, lojaSelecionadaSalva] =
         await Promise.all([
           AsyncStorage.getItem(SHOPPING_LIST_KEY),
@@ -49,7 +57,6 @@ export const carregarDadosListaCompras =
         ? JSON.parse(itensSalvos)
         : [];
 
-      // Itens antigos recebem o estabelecimento padrão.
       const itens: ItemListaCompras[] = itensAntigos.map((item) => ({
         ...item,
         lojaId: item.lojaId || ESTABELECIMENTO_PADRAO.id,
@@ -86,12 +93,16 @@ export const salvarDadosListaCompras = async (
         dados.estabelecimentoSelecionadoId
       ),
     ]);
+
+    const user = auth.currentUser;
+    if (user) {
+      saveShoppingListToCloud(user.uid, dados.itens);
+    }
   } catch (error) {
     console.error('Erro ao salvar listas de compras:', error);
   }
 };
 
-// Mantidas para compatibilidade com chamadas antigas, se existirem.
 export const getListaComprasSalva = async (): Promise<ItemListaCompras[]> => {
   const dados = await carregarDadosListaCompras();
   return dados.itens;
@@ -102,6 +113,10 @@ export const salvarListaComprasStorage = async (
 ): Promise<void> => {
   try {
     await AsyncStorage.setItem(SHOPPING_LIST_KEY, JSON.stringify(itens));
+    const user = auth.currentUser;
+    if (user) {
+      saveShoppingListToCloud(user.uid, itens);
+    }
   } catch (error) {
     console.error('Erro ao salvar a lista de compras:', error);
   }

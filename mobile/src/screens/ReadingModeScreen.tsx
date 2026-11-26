@@ -20,6 +20,8 @@ import { Receita } from '../model/receita';
 import { useTimer } from '../context/TimerContext';
 import UnitConverterModal from '../components/UnitConverterModal';
 import { usePantry } from '../context/PantryContext';
+import { addHistoryItem } from '../services/firestoreSync';
+import { auth } from '../services/firebaseConfig';
 
 type ReadingModeRouteParams = {
   receita?: Receita;
@@ -195,6 +197,10 @@ export default function ReadingModeScreen({
       if (!consumoRealizadoRef.current) {
         consumirIngredientes(receita?.ingredientes || []);
         consumoRealizadoRef.current = true;
+      }
+
+      if (receita?.id && auth.currentUser) {
+        addHistoryItem(auth.currentUser.uid, String(receita.id), 'PREPARADA');
       }
 
       setFinished(true);

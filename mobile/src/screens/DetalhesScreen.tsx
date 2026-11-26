@@ -40,6 +40,8 @@ import { buscarReceitaPorId } from '../services/receitaApiService';
 import { Receita } from '../model/receita';
 import { RecipeVideoPlayer } from '../components/RecipeVideoPlayer';
 import { RecipeNutritionCard } from '../components/RecipeNutritionCard';
+import { addHistoryItem } from '../services/firestoreSync';
+import { auth } from '../services/firebaseConfig';
 
 type DetalhesRouteParams = {
   receita?: Receita;
@@ -187,6 +189,10 @@ export default function DetalhesScreen({
       }
 
       setReceita(resultado);
+
+      if (resultado.id && auth.currentUser) {
+        addHistoryItem(auth.currentUser.uid, String(resultado.id), 'VISUALIZADA');
+      }
 
       const porcaoSalva =
         route?.params?.porcoesInicial || resultado.porcoes || 2;

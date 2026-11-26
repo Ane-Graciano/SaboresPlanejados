@@ -176,6 +176,10 @@ export default function PerfilScreen({
     avatarLetra,
   };
 
+  const handleNavigateHistorico = () => {
+    navigation.navigate('Historico');
+  };
+
   return (
     <SafeAreaView
       style={[
@@ -223,6 +227,7 @@ export default function PerfilScreen({
           onOpenLogoutModal={() =>
             setShowLogoutModal(true)
           }
+          onNavigateHistorico={handleNavigateHistorico}
           onDirectLogout={handleConfirmLogout}
           isDark={isDark}
           toggleTheme={toggleTheme}

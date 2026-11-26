@@ -17,6 +17,7 @@ interface ProfileMenuListProps {
   onDirectLogout: () => void;
   isDark: boolean;
   toggleTheme?: () => void;
+  onNavigateHistorico: () => void;
 }
 
 export default function ProfileMenuList({
@@ -25,6 +26,7 @@ export default function ProfileMenuList({
   onNavigatePreferenciasAlimentares,
   onOpenLogoutModal,
   onDirectLogout,
+  onNavigateHistorico,
   isDark,
   toggleTheme,
 }: ProfileMenuListProps) {
@@ -70,6 +72,26 @@ export default function ProfileMenuList({
             </Text>
             <Text style={styles.rowSub}>
               Ingredientes disponíveis em casa
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-forward" size={18} color="#C4B4A4" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.row, { borderBottomWidth: 0 }]}
+          onPress={onNavigateHistorico}
+        >
+          <View style={[styles.rowIcon, { backgroundColor: isDark ? '#2A3C30' : '#F0EAE1' }]}>
+            <Ionicons name="time-outline" size={18} color={isDark ? '#E0E7E1' : '#2C2016'} />
+          </View>
+
+          <View style={styles.rowTextContainer}>
+            <Text style={[styles.rowLabel, isDark && styles.textDark]}>
+              Histórico
+            </Text>
+            <Text style={styles.rowSub}>
+              Receitas visualizadas e preparadas
             </Text>
           </View>
 
